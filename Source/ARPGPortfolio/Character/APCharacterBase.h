@@ -5,6 +5,19 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "APCharacterBase.generated.h"
+#define MAX_SPEED_DASH			700.0f
+#define MAX_SPEED_WALK			300.0f
+#define MAX_ACCELERATION_DASH	3000
+#define MAX_ACCELERATION_WALK	1500
+
+DECLARE_LOG_CATEGORY_EXTERN(LogAPCharacterBase, Log, All)
+
+UENUM()
+enum class ECharacterControlType : uint8
+{
+	Shoulder,
+	Max
+};
 
 UCLASS()
 class ARPGPORTFOLIO_API AAPCharacterBase : public ACharacter
@@ -12,18 +25,11 @@ class ARPGPORTFOLIO_API AAPCharacterBase : public ACharacter
 	GENERATED_BODY()
 
 public:
-	// Sets default values for this character's properties
 	AAPCharacterBase();
 
 protected:
-	// Called when the game starts or when spawned
-	virtual void BeginPlay() override;
+	virtual void SetCharacterControlData(const class UAPCharacterControlData* CharacterControlData);
 
-public:	
-	// Called every frame
-	virtual void Tick(float DeltaTime) override;
-
-	// Called to bind functionality to input
-	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
-
+	UPROPERTY(EditAnywhere, Category = CharacterControl, Meta = (AllowPrivateAccess = "true"))
+	TMap<ECharacterControlType, class UAPCharacterControlData*> CharacterControlManager;
 };
