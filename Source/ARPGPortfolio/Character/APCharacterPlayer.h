@@ -89,11 +89,19 @@ protected:
 	ECharacterControlType CurrentCharacterControlType;
 
 // Animation Section
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Stat)
+	uint8 bIsPlayingParryAnimation : 1;
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Stat, Meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<class UAnimMontage> BackflipMontage;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Stat, Meta = (AllowPrivateAccess = "true"))
-	TObjectPtr<class UAnimMontage> QuickstepMontage;
+	TObjectPtr<class UAnimMontage> QuickStepLeftMontage;
 
-	void Quickstep(const ECommandType& InCommandType);
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Stat, Meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<class UAnimMontage> QuickStepRightMontage;
+
+	void QuickStep(const ECommandType& InCommandType);
+	void SetParryAnimationEndDelegate(class UAnimMontage* TargetMontage);
+	void ParryAnimationEnd(class UAnimMontage* TargetMontage, bool IsProperlyEnded);
 };

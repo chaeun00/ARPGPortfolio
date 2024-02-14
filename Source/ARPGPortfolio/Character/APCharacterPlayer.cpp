@@ -114,15 +114,27 @@ AAPCharacterPlayer::AAPCharacterPlayer()
 		UE_LOG(LogAPCharacterPlayer, Log, TEXT("BackflipMontage is NULL"));
 	}
 
-	static ConstructorHelpers::FObjectFinder<UAnimMontage> QuickstepMontageRef(TEXT("/Script/Engine.AnimMontage'/Game/ARPGPortfolio/Animation/AM_Quickstep.AM_Quickstep'"));
-	if (QuickstepMontageRef.Object)
+	static ConstructorHelpers::FObjectFinder<UAnimMontage> QuickStepLeftMontageRef(TEXT("/Script/Engine.AnimMontage'/Game/ARPGPortfolio/Animation/AM_QuickStepLeft.AM_QuickStepLeft'"));
+	if (QuickStepLeftMontageRef.Object)
 	{
-		QuickstepMontage = QuickstepMontageRef.Object;
+		QuickStepLeftMontage = QuickStepLeftMontageRef.Object;
 	}
 	else
 	{
-		UE_LOG(LogAPCharacterPlayer, Log, TEXT("QuickstepMontage is NULL"));
+		UE_LOG(LogAPCharacterPlayer, Log, TEXT("QuickStepLeftMontage is NULL"));
 	}
+
+	static ConstructorHelpers::FObjectFinder<UAnimMontage> QuickStepRightMontageRef(TEXT("/Script/Engine.AnimMontage'/Game/ARPGPortfolio/Animation/AM_QuickStepRight.AM_QuickStepRight'"));
+	if (QuickStepRightMontageRef.Object)
+	{
+		QuickStepRightMontage = QuickStepRightMontageRef.Object;
+	}
+	else
+	{
+		UE_LOG(LogAPCharacterPlayer, Log, TEXT("QuickStepRightMontage is NULL"));
+	}
+
+	bIsPlayingParryAnimation = false;
 }
 
 void AAPCharacterPlayer::BeginPlay()
@@ -189,16 +201,18 @@ void AAPCharacterPlayer::SetCharacterControlData(const UAPCharacterControlData* 
 
 void AAPCharacterPlayer::Jump()
 {
-	// Normal Jump
-	if (GetWorldTimerManager().GetTimerRemaining(CommandTimerHandles[ECommandType::Down]) == -1)
+	if (bIsPlayingParryAnimation)
 	{
-		ACharacter::Jump();
+		return;
 	}
+
+	ACharacter::Jump();
+
 	// Backflip
-	else 
+	if (GetWorldTimerManager().GetTimerRemaining(CommandTimerHandles[ECommandType::Down]) != -1)
 	{
 		ReleaseCommandTimerHandles();
-		
+
 		UAPAnimInstance* AnimInstance = Cast<UAPAnimInstance>(GetMesh()->GetAnimInstance());
 		if (AnimInstance->GetIsFalling() || AnimInstance->GetIsJumping())
 		{
@@ -206,7 +220,8 @@ void AAPCharacterPlayer::Jump()
 		}
 		AnimInstance->StopAllMontages(0.0f);
 		AnimInstance->Montage_Play(BackflipMontage, 1.2f);
-		AddMovementInput(FRotationMatrix(FRotator(0, Controller->GetControlRotation().Yaw, 0)).GetUnitAxis(EAxis::X), -100);
+		GetCharacterMovement()->AddImpulse(FRotationMatrix(FRotator(0, Controller->GetControlRotation().Yaw, 0)).GetUnitAxis(EAxis::X) * -10000);
+		SetParryAnimationEndDelegate(BackflipMontage);
 	}
 }
 
@@ -273,7 +288,11 @@ void AAPCharacterPlayer::PressLeftCommand()
 {
 	if (GetWorldTimerManager().GetTimerRemaining(CommandTimerHandles[ECommandType::Left]) != -1)
 	{
-		Quickstep(ECommandType::Left);
+		if (bIsPlayingParryAnimation)
+		{
+			return;
+		}
+		QuickStep(ECommandType::Left);
 	}
 	GetWorldTimerManager().SetTimer(CommandTimerHandles[ECommandType::Left], this, &AAPCharacterPlayer::ReleaseCommandTimerHandles, 0.2f, false);
 }
@@ -282,7 +301,11 @@ void AAPCharacterPlayer::PressRightCommand()
 {
 	if (GetWorldTimerManager().GetTimerRemaining(CommandTimerHandles[ECommandType::Right]) != -1)
 	{
-		Quickstep(ECommandType::Right);
+		if (bIsPlayingParryAnimation)
+		{
+			return;
+		}
+		QuickStep(ECommandType::Right);
 	}
 	GetWorldTimerManager().SetTimer(CommandTimerHandles[ECommandType::Right], this, &AAPCharacterPlayer::ReleaseCommandTimerHandles, 0.2f, false);
 }
@@ -300,31 +323,41 @@ void AAPCharacterPlayer::ReleaseCommandTimerHandles()
 	CommandTimerHandles[ECommandType::Right].Invalidate();
 }
 
-void AAPCharacterPlayer::Quickstep(const ECommandType& InCommandType)
+void AAPCharacterPlayer::QuickStep(const ECommandType& InCommandType)
 {
 	ReleaseCommandTimerHandles();
 
-	FName Section;
 	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	ensure(AnimInstance);
 	AnimInstance->StopAllMontages(0.0f);
 
-	switch (InCommandType)
+	if (InCommandType == ECommandType::Left)
 	{
-	case ECommandType::Left:
-		Section = FName(TEXT("RightQuickstepStart"));
-		AnimInstance->Montage_JumpToSection(Section, QuickstepMontage);
-		GetCharacterMovement()->AddForce(FRotationMatrix(FRotator(0, Controller->GetControlRotation().Yaw, 0)).GetUnitAxis(EAxis::Y) * -75);
-		break;
-
-	case ECommandType::Right:
-		Section = FName(TEXT("LeftQuickstepStart"));
-		AnimInstance->Montage_JumpToSection(Section, QuickstepMontage);
-		GetCharacterMovement()->AddForce(FRotationMatrix(FRotator(0, Controller->GetControlRotation().Yaw, 0)).GetUnitAxis(EAxis::Y) * 75);
-		break;
-
-	default:
-		break;
+		AnimInstance->Montage_Play(QuickStepLeftMontage, 1.3f);
+		GetCharacterMovement()->AddImpulse(FRotationMatrix(FRotator(0, Controller->GetControlRotation().Yaw, 0)).GetUnitAxis(EAxis::Y) * -200000);
+		SetParryAnimationEndDelegate(QuickStepLeftMontage);
 	}
+	else if (InCommandType == ECommandType::Right)
+	{
+		AnimInstance->Montage_Play(QuickStepRightMontage, 1.3f);
+		GetCharacterMovement()->AddImpulse(FRotationMatrix(FRotator(0, Controller->GetControlRotation().Yaw, 0)).GetUnitAxis(EAxis::Y) * 200000);
+		SetParryAnimationEndDelegate(QuickStepRightMontage);
+	}
+}
 
-	AnimInstance->Montage_Play(QuickstepMontage, 1.5f);
+void AAPCharacterPlayer::SetParryAnimationEndDelegate(UAnimMontage* TargetMontage)
+{
+	bIsPlayingParryAnimation = true;
+
+	FOnMontageEnded EndDelegate;
+	EndDelegate.BindUObject(this, &AAPCharacterPlayer::ParryAnimationEnd);
+	
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	ensure(AnimInstance);
+	AnimInstance->Montage_SetEndDelegate(EndDelegate, TargetMontage);
+}
+
+void AAPCharacterPlayer::ParryAnimationEnd(UAnimMontage* TargetMontage, bool IsProperlyEnded)
+{
+	bIsPlayingParryAnimation = false;
 }
