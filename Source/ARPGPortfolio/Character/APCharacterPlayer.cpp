@@ -11,11 +11,15 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Animation/APAnimInstance.h"
 #include "Animation/AnimMontage.h"
+#include "Kismet/KismetSystemLibrary.h"
+#include "Components/CapsuleComponent.h"
 
 DEFINE_LOG_CATEGORY(LogAPCharacterPlayer)
 
 AAPCharacterPlayer::AAPCharacterPlayer()
 {
+	PrimaryActorTick.bCanEverTick = true;
+
 	// Camera
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
 	CameraBoom->SetupAttachment(RootComponent);
@@ -134,7 +138,35 @@ AAPCharacterPlayer::AAPCharacterPlayer()
 		UE_LOG(LogAPCharacterPlayer, Log, TEXT("QuickStepRightMontage is NULL"));
 	}
 
-	bIsPlayingParryAnimation = false;
+	static ConstructorHelpers::FObjectFinder<UAnimMontage> Mantle1MMontageRef(TEXT("/Script/Engine.AnimMontage'/Game/ARPGPortfolio/Animation/AM_Mantle1M.AM_Mantle1M'"));
+	if (Mantle1MMontageRef.Object)
+	{
+		Mantle1MMontage = Mantle1MMontageRef.Object;
+	}
+	else
+	{
+		UE_LOG(LogAPCharacterPlayer, Log, TEXT("Mantle1MMontage is NULL"));
+	}
+
+	static ConstructorHelpers::FObjectFinder<UAnimMontage> Mantle2MMontageRef(TEXT("/Script/Engine.AnimMontage'/Game/ARPGPortfolio/Animation/AM_Mantle2M.AM_Mantle2M'"));
+	if (Mantle2MMontageRef.Object)
+	{
+		Mantle2MMontage = Mantle2MMontageRef.Object;
+	}
+	else
+	{
+		UE_LOG(LogAPCharacterPlayer, Log, TEXT("Mantle2MMontage is NULL"));
+	}
+
+	bIsInAction = false;
+	MantleSystem(EMantleType::NoMantle);
+}
+
+void AAPCharacterPlayer::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	MantleTrace();
 }
 
 void AAPCharacterPlayer::BeginPlay()
@@ -201,32 +233,56 @@ void AAPCharacterPlayer::SetCharacterControlData(const UAPCharacterControlData* 
 
 void AAPCharacterPlayer::Jump()
 {
-	if (bIsPlayingParryAnimation)
+	if (bIsInAction)
 	{
 		return;
 	}
 
-	ACharacter::Jump();
+	UAPAnimInstance* AnimInstance = Cast<UAPAnimInstance>(GetMesh()->GetAnimInstance());
+	AnimInstance->StopAllMontages(0.0f);
 
-	// Backflip
-	if (GetWorldTimerManager().GetTimerRemaining(CommandTimerHandles[ECommandType::Down]) != -1)
+	switch (MantleType)
 	{
-		ReleaseCommandTimerHandles();
+	case EMantleType::NoMantle:
+		ACharacter::Jump();
 
-		UAPAnimInstance* AnimInstance = Cast<UAPAnimInstance>(GetMesh()->GetAnimInstance());
-		if (AnimInstance->GetIsFalling() || AnimInstance->GetIsJumping())
+		// Backflip
+		if (GetWorldTimerManager().GetTimerRemaining(CommandTimerHandles[ECommandType::Down]) != -1)
 		{
-			return;
+			ReleaseCommandTimerHandles();
+
+			if (AnimInstance->GetIsFalling() || AnimInstance->GetIsJumping())
+			{
+				return;
+			}
+	
+			AnimInstance->Montage_Play(BackflipMontage, 1.2f);
+			GetCharacterMovement()->AddImpulse(FRotationMatrix(FRotator(0, Controller->GetControlRotation().Yaw, 0)).GetUnitAxis(EAxis::X) * -10000);
+			SetParryAnimationEndDelegate(BackflipMontage);
 		}
-		AnimInstance->StopAllMontages(0.0f);
-		AnimInstance->Montage_Play(BackflipMontage, 1.2f);
-		GetCharacterMovement()->AddImpulse(FRotationMatrix(FRotator(0, Controller->GetControlRotation().Yaw, 0)).GetUnitAxis(EAxis::X) * -10000);
-		SetParryAnimationEndDelegate(BackflipMontage);
+		break;
+
+	case EMantleType::Mantle1M:
+		MantleStart();
+		AnimInstance->Montage_Play(Mantle1MMontage, 1);
+		break;
+
+	case EMantleType::Mantle2M:
+		MantleStart();
+		AnimInstance->Montage_Play(Mantle2MMontage, 1);
+		break;
+
+	default:
+		break;
 	}
 }
 
 void AAPCharacterPlayer::ShoulderMove(const FInputActionValue& Value)
 {
+	if (bIsInAction)
+	{
+		return;
+	}
 	FVector2D MovementVector = Value.Get<FVector2D>();
 
 	const FRotator Rotation = Controller->GetControlRotation();
@@ -288,7 +344,7 @@ void AAPCharacterPlayer::PressLeftCommand()
 {
 	if (GetWorldTimerManager().GetTimerRemaining(CommandTimerHandles[ECommandType::Left]) != -1)
 	{
-		if (bIsPlayingParryAnimation)
+		if (bIsInAction)
 		{
 			return;
 		}
@@ -301,7 +357,7 @@ void AAPCharacterPlayer::PressRightCommand()
 {
 	if (GetWorldTimerManager().GetTimerRemaining(CommandTimerHandles[ECommandType::Right]) != -1)
 	{
-		if (bIsPlayingParryAnimation)
+		if (bIsInAction)
 		{
 			return;
 		}
@@ -347,7 +403,7 @@ void AAPCharacterPlayer::QuickStep(const ECommandType& InCommandType)
 
 void AAPCharacterPlayer::SetParryAnimationEndDelegate(UAnimMontage* TargetMontage)
 {
-	bIsPlayingParryAnimation = true;
+	bIsInAction = true;
 
 	FOnMontageEnded EndDelegate;
 	EndDelegate.BindUObject(this, &AAPCharacterPlayer::ParryAnimationEnd);
@@ -359,5 +415,61 @@ void AAPCharacterPlayer::SetParryAnimationEndDelegate(UAnimMontage* TargetMontag
 
 void AAPCharacterPlayer::ParryAnimationEnd(UAnimMontage* TargetMontage, bool IsProperlyEnded)
 {
-	bIsPlayingParryAnimation = false;
+	bIsInAction = false;
+}
+
+void AAPCharacterPlayer::MantleTrace()
+{
+	FVector Start = GetActorLocation() + FVector(0, 0, 150);
+	Start += (GetActorForwardVector() * 50);
+	FVector End = Start - FVector(0, 0, 200);
+
+	TArray<TEnumAsByte<EObjectTypeQuery>> ObjectTypesArray;
+	ObjectTypesArray.Add(UEngineTypes::ConvertToObjectType(ECollisionChannel::ECC_WorldStatic));
+	FHitResult HitResult;
+
+	if (UKismetSystemLibrary::SphereTraceSingleForObjects(GetWorld(), Start, End, 10.f, ObjectTypesArray, false, TArray<AActor*, FDefaultAllocator>(), EDrawDebugTrace::ForOneFrame, HitResult, true))
+	{
+		if (HitResult.Location.Z > GetMesh()->GetSocketLocation(FName(TEXT("head"))).Z * 1.5f)
+		{
+			MantleSystem(EMantleType::NoMantle);
+		}
+		else if (HitResult.Location.Z > GetMesh()->GetSocketLocation(FName(TEXT("head"))).Z)
+		{
+			MantleSystem(EMantleType::Mantle2M);
+		}
+		else if (HitResult.Location.Z > GetMesh()->GetSocketLocation(FName(TEXT("index_01_l"))).Z)
+		{
+			MantleSystem(EMantleType::Mantle1M);
+		}
+		else
+		{
+			MantleSystem(EMantleType::NoMantle);
+		}
+	}
+	else
+	{
+		MantleSystem(EMantleType::NoMantle);
+	}
+}
+
+void AAPCharacterPlayer::MantleSystem(const EMantleType& InMantleType)
+{
+	MantleType = InMantleType;
+}
+
+void AAPCharacterPlayer::MantleStart()
+{
+	bIsInAction = true;
+	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_Flying);
+	GetWorldTimerManager().SetTimer(MantleEndTimerHandle, this, &AAPCharacterPlayer::MantleEnd, 1.13f, false);
+}
+
+void AAPCharacterPlayer::MantleEnd()
+{
+	bIsInAction = false;
+	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+	GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_Walking);
+	GetWorldTimerManager().ClearTimer(MantleEndTimerHandle);
 }

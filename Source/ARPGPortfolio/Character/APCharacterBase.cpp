@@ -5,6 +5,7 @@
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "APCharacterControlData.h"
+#include "Physics/APCollision.h"
 
 DEFINE_LOG_CATEGORY(LogAPCharacterBase)
 
@@ -18,7 +19,7 @@ AAPCharacterBase::AAPCharacterBase()
 
 	// Capsule
 	GetCapsuleComponent()->InitCapsuleSize(42.f, 96.f);
-	GetCapsuleComponent()->SetCollisionProfileName(TEXT("Pawn"));
+	GetCapsuleComponent()->SetCollisionProfileName(CPROFILE_APCAPSULE);
 
 	// Movement
 	GetCharacterMovement()->GravityScale = 1.6f;
