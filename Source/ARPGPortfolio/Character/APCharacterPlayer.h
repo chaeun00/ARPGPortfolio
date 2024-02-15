@@ -6,6 +6,7 @@
 #include "Character/APCharacterBase.h"
 #include "InputActionValue.h"
 #include "Interface/APMantleInterface.h"
+#include "Interface/APParasailInterface.h"
 #include "APCharacterPlayer.generated.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogAPCharacterPlayer, Log, All)
@@ -24,7 +25,7 @@ enum class ECommandType : uint8
 };
 
 UCLASS()
-class ARPGPORTFOLIO_API AAPCharacterPlayer : public AAPCharacterBase, public IAPMantleInterface
+class ARPGPORTFOLIO_API AAPCharacterPlayer : public AAPCharacterBase, public IAPMantleInterface, public IAPParasailInterface
 {
 	GENERATED_BODY()
 	
@@ -76,11 +77,15 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, Meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<class UInputAction> RightAction;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, Meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<class UInputAction> ParasailAction;
+
 	virtual void Jump() override;
 	void ShoulderMove(const FInputActionValue& Value);
 	void ShoulderLook(const FInputActionValue& Value);
 	void Dash();
 	void StopDash();
+	void InitSpeed();
 	void PressDownCommand();
 	void PressLeftCommand();
 	void PressRightCommand();
@@ -119,4 +124,42 @@ protected:
 
 	EMantleType MantleType;
 	FTimerHandle MantleEndTimerHandle;
+
+// Parasail Section
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Parasail, Meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<class USkeletalMeshComponent> ParasailMeshComponent;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Parasail, Meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<class USkeletalMesh> ParasailMesh;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Parasail, Meta = (AllowPrivateAccess = "true"))
+	FVector ParasailMeshStartPosition;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Parasail, Meta = (AllowPrivateAccess = "true"))
+	FVector ParasailMeshStartScale;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Parasail, Meta = (AllowPrivateAccess = "true"))
+	FVector ParasailMeshEndPosition;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Parasail, Meta = (AllowPrivateAccess = "true"))
+	FVector ParasailMeshEndScale;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Parasail, Meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<class UAnimMontage> StartParasailMontage;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Parasail)
+	uint8 bIsParasailing : 1;
+
+	virtual void StartParasail() override;
+	virtual void EndParasail() override;
+	void ParasailPositionAndScaleProcess();
+
+	FTimerHandle ParasailTimerHandle;
+	float UnfoldDuration;
+	float CurrentDuration;
+
+// SpeedLine Section
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = SpeedLine, Meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<class UNiagaraComponent> SpeedLineNiagaraParticleSystemComponent;
+
 };

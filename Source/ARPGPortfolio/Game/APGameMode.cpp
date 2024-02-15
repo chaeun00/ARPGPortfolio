@@ -7,7 +7,7 @@ DEFINE_LOG_CATEGORY(LogAPGameMode)
 
 AAPGameMode::AAPGameMode()
 {
-	static ConstructorHelpers::FClassFinder<APawn> DefaultPawnClassRef(TEXT("/Script/ARPGPortfolio.APCharacterPlayer"));
+	static ConstructorHelpers::FClassFinder<APawn> DefaultPawnClassRef(TEXT("/Game/ARPGPortfolio/Blueprints/BP_APPlayer.BP_APPlayer_C"));
 	if (DefaultPawnClassRef.Class)
 	{
 		DefaultPawnClass = DefaultPawnClassRef.Class;

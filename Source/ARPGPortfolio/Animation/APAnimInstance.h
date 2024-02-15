@@ -23,6 +23,7 @@ public:
 	FORCEINLINE uint8 GetIsIdle() { return bIsIdle; }
 	FORCEINLINE uint8 GetIsJumping() { return bIsJumping; }
 	FORCEINLINE uint8 GetIsFalling() { return bIsFalling; }
+	FORCEINLINE void SetIsParasailing(uint8 InValue) { bIsParasailing = InValue; }
 
 protected:
 	virtual void NativeInitializeAnimation() override;
@@ -55,4 +56,7 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Character)
 	float JumpingThreshould;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Character)
+	uint8 bIsParasailing : 1;
 };

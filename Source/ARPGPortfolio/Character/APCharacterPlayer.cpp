@@ -13,6 +13,7 @@
 #include "Animation/AnimMontage.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Components/CapsuleComponent.h"
+#include "NiagaraComponent.h"
 
 DEFINE_LOG_CATEGORY(LogAPCharacterPlayer)
 
@@ -23,7 +24,7 @@ AAPCharacterPlayer::AAPCharacterPlayer()
 	// Camera
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
 	CameraBoom->SetupAttachment(RootComponent);
-	CameraBoom->TargetArmLength = 400.f;
+	CameraBoom->TargetArmLength = 600.f;
 	CameraBoom->bUsePawnControlRotation = true;
 
 	FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
@@ -108,6 +109,17 @@ AAPCharacterPlayer::AAPCharacterPlayer()
 
 	CurrentCharacterControlType = ECharacterControlType::Shoulder;
 
+	static ConstructorHelpers::FObjectFinder<UInputAction> InputActionParasailRef(TEXT("/Script/EnhancedInput.InputAction'/Game/ARPGPortfolio/Input/Actions/IA_Parasail.IA_Parasail'"));
+	if (nullptr != InputActionParasailRef.Object)
+	{
+		ParasailAction = InputActionParasailRef.Object;
+	}
+	else
+	{
+		UE_LOG(LogAPCharacterPlayer, Log, TEXT("InputActionParasail is NULL"));
+	}
+
+
 	static ConstructorHelpers::FObjectFinder<UAnimMontage> BackflipMontageRef(TEXT("/Script/Engine.AnimMontage'/Game/ARPGPortfolio/Animation/AM_Backflip.AM_Backflip'"));
 	if (BackflipMontageRef.Object)
 	{
@@ -158,8 +170,58 @@ AAPCharacterPlayer::AAPCharacterPlayer()
 		UE_LOG(LogAPCharacterPlayer, Log, TEXT("Mantle2MMontage is NULL"));
 	}
 
+	static ConstructorHelpers::FObjectFinder<UAnimMontage> StartParasailMontageRef(TEXT("/Script/Engine.AnimMontage'/Game/ARPGPortfolio/Animation/AM_StartParasail.AM_StartParasail'"));
+	if (StartParasailMontageRef.Object)
+	{
+		StartParasailMontage = StartParasailMontageRef.Object;
+	}
+	else
+	{
+		UE_LOG(LogAPCharacterPlayer, Log, TEXT("StartParasailMontage is NULL"));
+	}
+
 	bIsInAction = false;
 	MantleSystem(EMantleType::NoMantle);
+
+	// Parasail
+	ParasailMeshStartPosition = FVector(0, 0, 350);
+	ParasailMeshStartScale = FVector(0, 0, 0);
+	ParasailMeshEndPosition = FVector(0, 0, 230);
+	ParasailMeshEndScale = FVector(0.04f, 0.04f, 0.04f);
+
+	ParasailMeshComponent = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("Parasail"));
+	ParasailMeshComponent->SetupAttachment(GetMesh());
+	ParasailMeshComponent->SetRelativeLocation(ParasailMeshStartPosition);
+	ParasailMeshComponent->SetRelativeScale3D(ParasailMeshStartScale);
+
+	static ConstructorHelpers::FObjectFinder<USkeletalMesh> ParasailMeshRef(TEXT("/Script/Engine.SkeletalMesh'/Game/CommercialPlane/Meshes/sk_CommercialPlane_LOD2.SK_CommercialPlane_LOD2'"));
+	if (ParasailMeshRef.Object)
+	{
+		ParasailMeshComponent->SetSkeletalMesh(ParasailMeshRef.Object);
+	}
+	else
+	{
+		UE_LOG(LogAPCharacterPlayer, Log, TEXT("ParasailMesh is NULL"));
+	}
+
+	UnfoldDuration = 0.7f;
+	CurrentDuration = 0;
+	bIsParasailing = false;
+
+	// SpeedLine
+	SpeedLineNiagaraParticleSystemComponent = CreateDefaultSubobject<UNiagaraComponent>(TEXT("SpeedLine"));
+	SpeedLineNiagaraParticleSystemComponent->SetupAttachment(GetMesh());
+	SpeedLineNiagaraParticleSystemComponent->SetRelativeLocation(FVector(0, 0, 100));
+
+	static ConstructorHelpers::FObjectFinder<UNiagaraSystem> SpeedLineSystemRef(TEXT("/Script/Niagara.NiagaraSystem'/Game/ARPGPortfolio/SpeedLine/NS_SpeedLine.NS_SpeedLine'"));
+	if (SpeedLineSystemRef.Object)
+	{
+		SpeedLineNiagaraParticleSystemComponent->SetAsset(SpeedLineSystemRef.Object);
+	}
+	else
+	{
+		UE_LOG(LogAPCharacterPlayer, Log, TEXT("SpeedLineSystemRef is NULL"));
+	}
 }
 
 void AAPCharacterPlayer::Tick(float DeltaTime)
@@ -191,6 +253,8 @@ void AAPCharacterPlayer::SetupPlayerInputComponent(class UInputComponent* Player
 	EnhancedInputComponent->BindAction(DownAction, ETriggerEvent::Triggered, this, &AAPCharacterPlayer::PressDownCommand);
 	EnhancedInputComponent->BindAction(LeftAction, ETriggerEvent::Triggered, this, &AAPCharacterPlayer::PressLeftCommand);
 	EnhancedInputComponent->BindAction(RightAction, ETriggerEvent::Triggered, this, &AAPCharacterPlayer::PressRightCommand);
+	EnhancedInputComponent->BindAction(ParasailAction, ETriggerEvent::Triggered, this, &AAPCharacterPlayer::StartParasail);
+	EnhancedInputComponent->BindAction(ParasailAction, ETriggerEvent::Completed, this, &AAPCharacterPlayer::EndParasail);
 }
 
 void AAPCharacterPlayer::ChangeCharacterControl()
@@ -279,10 +343,11 @@ void AAPCharacterPlayer::Jump()
 
 void AAPCharacterPlayer::ShoulderMove(const FInputActionValue& Value)
 {
-	if (bIsInAction)
+	if (bIsInAction && !bIsParasailing)
 	{
 		return;
 	}
+
 	FVector2D MovementVector = Value.Get<FVector2D>();
 
 	const FRotator Rotation = Controller->GetControlRotation();
@@ -324,11 +389,16 @@ void AAPCharacterPlayer::StopDash()
 		}
 		else
 		{
-			GetWorldTimerManager().ClearTimer(StopDashTimerHandle);
-			GetCharacterMovement()->MaxAcceleration = MAX_ACCELERATION_WALK;
-			GetCharacterMovement()->MaxWalkSpeed = MAX_SPEED_WALK;
+			InitSpeed();
 		}
 	}
+}
+
+void AAPCharacterPlayer::InitSpeed()
+{
+	GetWorldTimerManager().ClearTimer(StopDashTimerHandle);
+	GetCharacterMovement()->MaxAcceleration = MAX_ACCELERATION_WALK;
+	GetCharacterMovement()->MaxWalkSpeed = MAX_SPEED_WALK;
 }
 
 void AAPCharacterPlayer::PressDownCommand()
@@ -472,4 +542,66 @@ void AAPCharacterPlayer::MantleEnd()
 	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 	GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_Walking);
 	GetWorldTimerManager().ClearTimer(MantleEndTimerHandle);
+}
+
+void AAPCharacterPlayer::StartParasail()
+{
+	if (GetMovementComponent()->IsFalling())
+	{
+		if (!bIsParasailing)
+		{
+			InitSpeed();
+
+			GetCharacterMovement()->MaxAcceleration = MAX_ACCELERATION_DASH;
+			GetCharacterMovement()->MaxWalkSpeed = MAX_SPEED_DASH;
+
+			bIsParasailing = true;
+			bIsInAction = true;
+
+			UAPAnimInstance* AnimInstance = Cast<UAPAnimInstance>(GetMesh()->GetAnimInstance());
+			ensure(AnimInstance);
+
+			AnimInstance->SetIsParasailing(true);
+			AnimInstance->StopAllMontages(0.0f);
+			AnimInstance->Montage_Play(StartParasailMontage, 2);
+
+			CurrentDuration = 0;
+			GetWorldTimerManager().SetTimer(ParasailTimerHandle, this, &AAPCharacterPlayer::ParasailPositionAndScaleProcess, FApp::GetDeltaTime(), true);
+		}
+
+		GetCharacterMovement()->Velocity.Z = -40;
+	}
+}
+
+void AAPCharacterPlayer::EndParasail()
+{
+	if (bIsParasailing)
+	{
+		GetWorldTimerManager().ClearTimer(ParasailTimerHandle);
+		InitSpeed();
+
+		ParasailMeshComponent->SetRelativeLocation(ParasailMeshStartPosition);
+		ParasailMeshComponent->SetRelativeScale3D(ParasailMeshStartScale);
+
+		bIsParasailing = false;
+		bIsInAction = false;
+
+		UAPAnimInstance* AnimInstance = Cast<UAPAnimInstance>(GetMesh()->GetAnimInstance());
+		ensure(AnimInstance);
+
+		AnimInstance->SetIsParasailing(false);
+		AnimInstance->StopAllMontages(0.0f);
+	}
+}
+
+void AAPCharacterPlayer::ParasailPositionAndScaleProcess()
+{
+	CurrentDuration += FApp::GetDeltaTime();
+	if (CurrentDuration > UnfoldDuration)
+	{
+		GetWorldTimerManager().ClearTimer(ParasailTimerHandle);
+	}
+
+	ParasailMeshComponent->SetRelativeLocation(FMath::InterpEaseOut(ParasailMeshStartPosition, ParasailMeshEndPosition, CurrentDuration / UnfoldDuration, 2));
+	ParasailMeshComponent->SetRelativeScale3D(FMath::InterpEaseOut(ParasailMeshStartScale, ParasailMeshEndScale, CurrentDuration / UnfoldDuration, 2));
 }

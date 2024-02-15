@@ -10,7 +10,7 @@ public class ARPGPortfolio : ModuleRules
 
 		PublicIncludePaths.AddRange(new string[] { "ARPGPortfolio" });
 
-		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput" });
+		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput", "Niagara" });
 
 		PrivateDependencyModuleNames.AddRange(new string[] {  });
 

@@ -22,7 +22,7 @@ AAPCharacterBase::AAPCharacterBase()
 	GetCapsuleComponent()->SetCollisionProfileName(CPROFILE_APCAPSULE);
 
 	// Movement
-	GetCharacterMovement()->GravityScale = 1.6f;
+	GetCharacterMovement()->GravityScale = GRAVITYSCALE_DEFAULT;
 	GetCharacterMovement()->bOrientRotationToMovement = true;
 	GetCharacterMovement()->RotationRate = FRotator(0.f, 500.f, 0.f);
 	GetCharacterMovement()->JumpZVelocity = 1000.f;

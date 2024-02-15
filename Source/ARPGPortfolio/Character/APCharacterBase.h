@@ -5,10 +5,11 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "APCharacterBase.generated.h"
-#define MAX_SPEED_DASH			700.0f
-#define MAX_SPEED_WALK			300.0f
-#define MAX_ACCELERATION_DASH	3000
-#define MAX_ACCELERATION_WALK	1500
+#define	GRAVITYSCALE_DEFAULT		1.6f
+#define MAX_SPEED_DASH				900.0f
+#define MAX_SPEED_WALK				300.0f
+#define MAX_ACCELERATION_DASH		3000
+#define MAX_ACCELERATION_WALK		1500
 
 DECLARE_LOG_CATEGORY_EXTERN(LogAPCharacterBase, Log, All)
 
