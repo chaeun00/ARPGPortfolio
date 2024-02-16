@@ -488,6 +488,28 @@ void AAPCharacterPlayer::ParryAnimationEnd(UAnimMontage* TargetMontage, bool IsP
 	bIsInAction = false;
 }
 
+void AAPCharacterPlayer::ClimbLadderTrace()
+{
+}
+
+void AAPCharacterPlayer::StartClimbLadder()
+{
+	UAPAnimInstance* AnimInstance = Cast<UAPAnimInstance>(GetMesh()->GetAnimInstance());
+	ensure(AnimInstance);
+	
+	AnimInstance->SetIsClimbingLadder(true);
+	AnimInstance->StopAllMontages(0.0f);
+}
+
+void AAPCharacterPlayer::EndClimbLadder()
+{
+	UAPAnimInstance* AnimInstance = Cast<UAPAnimInstance>(GetMesh()->GetAnimInstance());
+	ensure(AnimInstance);
+
+	AnimInstance->SetIsClimbingLadder(false);
+	AnimInstance->StopAllMontages(0.0f);
+}
+
 void AAPCharacterPlayer::MantleTrace()
 {
 	FVector Start = GetActorLocation() + FVector(0, 0, 150);

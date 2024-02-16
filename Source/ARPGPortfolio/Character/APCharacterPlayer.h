@@ -7,6 +7,7 @@
 #include "InputActionValue.h"
 #include "Interface/APMantleInterface.h"
 #include "Interface/APParasailInterface.h"
+#include "Interface/APClimbLadderInterface.h"
 #include "APCharacterPlayer.generated.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogAPCharacterPlayer, Log, All)
@@ -25,7 +26,7 @@ enum class ECommandType : uint8
 };
 
 UCLASS()
-class ARPGPORTFOLIO_API AAPCharacterPlayer : public AAPCharacterBase, public IAPMantleInterface, public IAPParasailInterface
+class ARPGPORTFOLIO_API AAPCharacterPlayer : public AAPCharacterBase, public IAPMantleInterface, public IAPParasailInterface, public IAPClimbLadderInterface
 {
 	GENERATED_BODY()
 	
@@ -108,19 +109,26 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Stat, Meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<class UAnimMontage> QuickStepRightMontage;
 
+	void QuickStep(const ECommandType& InCommandType);
+	void SetParryAnimationEndDelegate(class UAnimMontage* TargetMontage);
+	void ParryAnimationEnd(class UAnimMontage* TargetMontage, bool IsProperlyEnded);
+
+// Climb Ladder Section
+	virtual void ClimbLadderTrace() override;
+	virtual void StartClimbLadder() override;
+	virtual void EndClimbLadder() override;
+
+// Mantle Section
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Stat, Meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<class UAnimMontage> Mantle1MMontage;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Stat, Meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<class UAnimMontage> Mantle2MMontage;
 
-	void QuickStep(const ECommandType& InCommandType);
-	void SetParryAnimationEndDelegate(class UAnimMontage* TargetMontage);
-	void ParryAnimationEnd(class UAnimMontage* TargetMontage, bool IsProperlyEnded);
-	void MantleTrace();
+	virtual void MantleTrace() override;
 	virtual void MantleSystem(const EMantleType& InMantleType) override;
-	void MantleStart();
-	void MantleEnd();
+	virtual void MantleStart() override;
+	virtual void MantleEnd() override;
 
 	EMantleType MantleType;
 	FTimerHandle MantleEndTimerHandle;
