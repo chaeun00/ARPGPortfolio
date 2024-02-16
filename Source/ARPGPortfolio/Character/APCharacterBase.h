@@ -4,7 +4,9 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
+#include "GameData/APCharacterStat.h"
 #include "APCharacterBase.generated.h"
+
 #define	GRAVITYSCALE_DEFAULT		1.6f
 #define MAX_SPEED_DASH				900.0f
 #define MAX_SPEED_WALK				300.0f
@@ -29,10 +31,36 @@ class ARPGPORTFOLIO_API AAPCharacterBase : public ACharacter
 
 public:
 	AAPCharacterBase();
+	
+	virtual void PostInitializeComponents() override;
 
 protected:
 	virtual void SetCharacterControlData(const class UAPCharacterControlData* CharacterControlData);
 
 	UPROPERTY(EditAnywhere, Category = CharacterControl, Meta = (AllowPrivateAccess = "true"))
 	TMap<ECharacterControlType, class UAPCharacterControlData*> CharacterControlManager;
+
+// Stat Section
+protected:
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Stat, Meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<class UAPCharacterStatComponent> Stat;
+
+public:
+	int32 GetLevel();
+	void SetLevel(int32 InNewLevel);
+	void ApplyStat(const FAPCharacterStat& BaseStat, const FAPCharacterStat& ModifierStat);
+
+// Attack Hit Section
+protected:
+	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, AActor* DamageCauser) override;
+
+// Dead Section
+protected:
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Stat, Meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<class UAnimMontage> DeadMontage;
+
+	virtual void SetDead();
+	void PlayDeadAnimation();
+
+	float DeadEventDelayTime;
 };

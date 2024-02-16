@@ -4,24 +4,27 @@
 #include "Character/APCharacterPlayer.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "InputMappingContext.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "APCharacterControlData.h"
-#include "GameFramework/CharacterMovementComponent.h"
 #include "Animation/APAnimInstance.h"
 #include "Animation/AnimMontage.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Components/CapsuleComponent.h"
 #include "NiagaraComponent.h"
+#include "Interface/APGameInterface.h"
+#include "CharacterStat/APCharacterStatComponent.h"
 
 DEFINE_LOG_CATEGORY(LogAPCharacterPlayer)
+
 
 AAPCharacterPlayer::AAPCharacterPlayer()
 {
 	PrimaryActorTick.bCanEverTick = true;
 
-	// Camera
+	// Camera Section
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
 	CameraBoom->SetupAttachment(RootComponent);
 	CameraBoom->TargetArmLength = 600.f;
@@ -31,7 +34,7 @@ AAPCharacterPlayer::AAPCharacterPlayer()
 	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
 	FollowCamera->bUsePawnControlRotation = false;
 
-	//Input
+	//Input Section
 	static ConstructorHelpers::FObjectFinder<UInputAction> InputActionJumpRef(TEXT("/Script/EnhancedInput.InputAction'/Game/ARPGPortfolio/Input/Actions/IA_Jump.IA_Jump'"));
 	if (nullptr != InputActionJumpRef.Object)
 	{
@@ -180,10 +183,10 @@ AAPCharacterPlayer::AAPCharacterPlayer()
 		UE_LOG(LogAPCharacterPlayer, Log, TEXT("StartParasailMontage is NULL"));
 	}
 
-	bIsInAction = false;
+	bIsDodging = false;
 	MantleSystem(EMantleType::NoMantle);
 
-	// Parasail
+	// Parasail Section
 	ParasailMeshStartPosition = FVector(0, 0, 350);
 	ParasailMeshStartScale = FVector(0, 0, 0);
 	ParasailMeshEndPosition = FVector(0, 0, 230);
@@ -208,7 +211,7 @@ AAPCharacterPlayer::AAPCharacterPlayer()
 	CurrentDuration = 0;
 	bIsParasailing = false;
 
-	// SpeedLine
+	// SpeedLine Section
 	SpeedLineNiagaraParticleSystemComponent = CreateDefaultSubobject<UNiagaraComponent>(TEXT("SpeedLine"));
 	SpeedLineNiagaraParticleSystemComponent->SetupAttachment(GetMesh());
 	SpeedLineNiagaraParticleSystemComponent->SetRelativeLocation(FVector(0, 0, 100));
@@ -222,6 +225,19 @@ AAPCharacterPlayer::AAPCharacterPlayer()
 	{
 		UE_LOG(LogAPCharacterPlayer, Log, TEXT("SpeedLineSystemRef is NULL"));
 	}
+
+	// Stemina Section
+	static ConstructorHelpers::FObjectFinder<UAnimMontage> ExhaustedMontageRef(TEXT("/Script/Engine.AnimMontage'/Game/ARPGPortfolio/Animation/AM_Exhausted.AM_Exhausted'"));
+	if (ExhaustedMontageRef.Object)
+	{
+		ExhaustedMontage = ExhaustedMontageRef.Object;
+	}
+	else
+	{
+		UE_LOG(LogAPCharacterPlayer, Log, TEXT("ExhaustedMontage is NULL"));
+	}
+
+	bIsExhausted = false;
 }
 
 void AAPCharacterPlayer::Tick(float DeltaTime)
@@ -229,11 +245,20 @@ void AAPCharacterPlayer::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 
 	MantleTrace();
+	RecoveryStemina();
 }
 
 void AAPCharacterPlayer::BeginPlay()
 {
 	Super::BeginPlay();
+
+	Stat->OnSteminaZero.AddUObject(this, &AAPCharacterPlayer::SetExhausted);
+
+	APlayerController* PlayerController = Cast<APlayerController>(GetController());
+	if (PlayerController)
+	{
+		EnableInput(PlayerController);
+	}
 
 	SetCharacterControl(CurrentCharacterControlType);
 }
@@ -297,13 +322,21 @@ void AAPCharacterPlayer::SetCharacterControlData(const UAPCharacterControlData* 
 
 void AAPCharacterPlayer::Jump()
 {
-	if (bIsInAction)
+	if (bIsDodging || bIsExhausted)
 	{
 		return;
 	}
 
-	UAPAnimInstance* AnimInstance = Cast<UAPAnimInstance>(GetMesh()->GetAnimInstance());
+	UAPAnimInstance* AnimInstance = Cast < UAPAnimInstance>(GetMesh()->GetAnimInstance());
 	AnimInstance->StopAllMontages(0.0f);
+	if (AnimInstance->GetIsJumping() || AnimInstance->GetIsFalling())
+	{
+		return;
+	}
+	else
+	{
+		Stat->ApplyUsedStemina(10);
+	}
 
 	switch (MantleType)
 	{
@@ -343,7 +376,7 @@ void AAPCharacterPlayer::Jump()
 
 void AAPCharacterPlayer::ShoulderMove(const FInputActionValue& Value)
 {
-	if (bIsInAction && !bIsParasailing)
+	if (bIsDodging && !bIsParasailing)
 	{
 		return;
 	}
@@ -370,11 +403,17 @@ void AAPCharacterPlayer::ShoulderLook(const FInputActionValue& Value)
 
 void AAPCharacterPlayer::Dash()
 {
+	if (bIsExhausted)
+	{
+		return;
+	}
+
 	UAPAnimInstance* AnimInstance = Cast<UAPAnimInstance>(GetMesh()->GetAnimInstance());
 	if (AnimInstance && !AnimInstance->GetIsFalling() && !AnimInstance->GetIsJumping())
 	{
 		GetCharacterMovement()->MaxAcceleration = MAX_ACCELERATION_DASH;
 		GetCharacterMovement()->MaxWalkSpeed = MAX_SPEED_DASH;
+		Stat->ApplyUsedStemina(FApp::GetDeltaTime() * 25);
 	}
 }
 
@@ -414,7 +453,7 @@ void AAPCharacterPlayer::PressLeftCommand()
 {
 	if (GetWorldTimerManager().GetTimerRemaining(CommandTimerHandles[ECommandType::Left]) != -1)
 	{
-		if (bIsInAction)
+		if (bIsDodging)
 		{
 			return;
 		}
@@ -427,7 +466,7 @@ void AAPCharacterPlayer::PressRightCommand()
 {
 	if (GetWorldTimerManager().GetTimerRemaining(CommandTimerHandles[ECommandType::Right]) != -1)
 	{
-		if (bIsInAction)
+		if (bIsDodging)
 		{
 			return;
 		}
@@ -451,7 +490,13 @@ void AAPCharacterPlayer::ReleaseCommandTimerHandles()
 
 void AAPCharacterPlayer::QuickStep(const ECommandType& InCommandType)
 {
+	if (bIsExhausted)
+	{
+		return;
+	}
+
 	ReleaseCommandTimerHandles();
+	Stat->ApplyUsedStemina(15);
 
 	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
 	ensure(AnimInstance);
@@ -473,7 +518,7 @@ void AAPCharacterPlayer::QuickStep(const ECommandType& InCommandType)
 
 void AAPCharacterPlayer::SetParryAnimationEndDelegate(UAnimMontage* TargetMontage)
 {
-	bIsInAction = true;
+	bIsDodging = true;
 
 	FOnMontageEnded EndDelegate;
 	EndDelegate.BindUObject(this, &AAPCharacterPlayer::ParryAnimationEnd);
@@ -485,7 +530,7 @@ void AAPCharacterPlayer::SetParryAnimationEndDelegate(UAnimMontage* TargetMontag
 
 void AAPCharacterPlayer::ParryAnimationEnd(UAnimMontage* TargetMontage, bool IsProperlyEnded)
 {
-	bIsInAction = false;
+	bIsDodging = false;
 }
 
 void AAPCharacterPlayer::ClimbLadderTrace()
@@ -552,7 +597,7 @@ void AAPCharacterPlayer::MantleSystem(const EMantleType& InMantleType)
 
 void AAPCharacterPlayer::MantleStart()
 {
-	bIsInAction = true;
+	bIsDodging = true;
 	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_Flying);
 	GetWorldTimerManager().SetTimer(MantleEndTimerHandle, this, &AAPCharacterPlayer::MantleEnd, 1.13f, false);
@@ -560,7 +605,7 @@ void AAPCharacterPlayer::MantleStart()
 
 void AAPCharacterPlayer::MantleEnd()
 {
-	bIsInAction = false;
+	bIsDodging = false;
 	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 	GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_Walking);
 	GetWorldTimerManager().ClearTimer(MantleEndTimerHandle);
@@ -568,6 +613,11 @@ void AAPCharacterPlayer::MantleEnd()
 
 void AAPCharacterPlayer::StartParasail()
 {
+	if (bIsExhausted)
+	{
+		return;
+	}
+
 	if (GetMovementComponent()->IsFalling())
 	{
 		if (!bIsParasailing)
@@ -578,7 +628,7 @@ void AAPCharacterPlayer::StartParasail()
 			GetCharacterMovement()->MaxWalkSpeed = MAX_SPEED_DASH;
 
 			bIsParasailing = true;
-			bIsInAction = true;
+			bIsDodging = true;
 
 			UAPAnimInstance* AnimInstance = Cast<UAPAnimInstance>(GetMesh()->GetAnimInstance());
 			ensure(AnimInstance);
@@ -591,6 +641,7 @@ void AAPCharacterPlayer::StartParasail()
 			GetWorldTimerManager().SetTimer(ParasailTimerHandle, this, &AAPCharacterPlayer::ParasailPositionAndScaleProcess, FApp::GetDeltaTime(), true);
 		}
 
+		Stat->ApplyUsedStemina(FApp::GetDeltaTime() * 10);
 		GetCharacterMovement()->Velocity.Z = -40;
 	}
 }
@@ -606,7 +657,7 @@ void AAPCharacterPlayer::EndParasail()
 		ParasailMeshComponent->SetRelativeScale3D(ParasailMeshStartScale);
 
 		bIsParasailing = false;
-		bIsInAction = false;
+		bIsDodging = false;
 
 		UAPAnimInstance* AnimInstance = Cast<UAPAnimInstance>(GetMesh()->GetAnimInstance());
 		ensure(AnimInstance);
@@ -626,4 +677,75 @@ void AAPCharacterPlayer::ParasailPositionAndScaleProcess()
 
 	ParasailMeshComponent->SetRelativeLocation(FMath::InterpEaseOut(ParasailMeshStartPosition, ParasailMeshEndPosition, CurrentDuration / UnfoldDuration, 2));
 	ParasailMeshComponent->SetRelativeScale3D(FMath::InterpEaseOut(ParasailMeshStartScale, ParasailMeshEndScale, CurrentDuration / UnfoldDuration, 2));
+}
+
+void AAPCharacterPlayer::SetDead()
+{
+	Super::SetDead();
+
+	APlayerController* PlayerController = Cast<APlayerController>(GetController());
+	if (PlayerController)
+	{
+		DisableInput(PlayerController);
+
+		IAPGameInterface* APGameMode = Cast<IAPGameInterface>(GetWorld()->GetAuthGameMode());
+		if (APGameMode)
+		{
+			APGameMode->OnPlayerDead();
+		}
+	}
+}
+
+void AAPCharacterPlayer::RecoveryStemina()
+{
+	UAPAnimInstance* AnimInstance = Cast<UAPAnimInstance>(GetMesh()->GetAnimInstance());
+	if (bIsParasailing || bIsDodging
+		|| AnimInstance->GetIsJumping() || AnimInstance->GetIsFalling() || AnimInstance->Montage_IsPlaying(ExhaustedMontage)
+		|| GetCharacterMovement()->MaxAcceleration == MAX_ACCELERATION_DASH)
+	{
+		return;
+	}
+
+	Stat->RecoveryStemina(FApp::GetDeltaTime() * 20);
+	UE_LOG(LogAPCharacterPlayer, Log, TEXT("RecoveryStemina: %f"), Stat->GetCurrentStemina());
+	if (Stat->GetCurrentStemina() == Stat->GetTotalStat().MaxStemina)
+	{
+		bIsExhausted = false;
+	}
+}
+
+void AAPCharacterPlayer::SetExhausted()
+{
+	bIsExhausted = true;
+	GetWorldTimerManager().SetTimer(ExhaustedTimerHandle, this, &AAPCharacterPlayer::ExhaustedProcess, FApp::GetDeltaTime(), true);
+}
+
+void AAPCharacterPlayer::StartExhausted()
+{
+	GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_None);
+}
+
+void AAPCharacterPlayer::ExhaustedProcess()
+{
+	UAPAnimInstance* AnimInstance = Cast<UAPAnimInstance>(GetMesh()->GetAnimInstance());
+	
+	if (bIsParasailing)
+	{
+		EndParasail();
+	}
+	else if (bIsDodging || AnimInstance->GetIsJumping() || AnimInstance->GetIsFalling())
+	{
+		return;
+	}
+	else
+	{
+		StopDash();
+		AnimInstance->Montage_Play(ExhaustedMontage, 1.3f);
+		GetWorldTimerManager().ClearTimer(ExhaustedTimerHandle);
+	}
+}
+
+void AAPCharacterPlayer::EndExhausted()
+{
+	GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_Walking);
 }

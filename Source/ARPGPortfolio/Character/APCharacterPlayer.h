@@ -8,6 +8,7 @@
 #include "Interface/APMantleInterface.h"
 #include "Interface/APParasailInterface.h"
 #include "Interface/APClimbLadderInterface.h"
+#include "Interface/APSteminaInterface.h"
 #include "APCharacterPlayer.generated.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogAPCharacterPlayer, Log, All)
@@ -26,7 +27,7 @@ enum class ECommandType : uint8
 };
 
 UCLASS()
-class ARPGPORTFOLIO_API AAPCharacterPlayer : public AAPCharacterBase, public IAPMantleInterface, public IAPParasailInterface, public IAPClimbLadderInterface
+class ARPGPORTFOLIO_API AAPCharacterPlayer : public AAPCharacterBase, public IAPMantleInterface, public IAPParasailInterface, public IAPClimbLadderInterface, public IAPSteminaInterface
 {
 	GENERATED_BODY()
 	
@@ -97,8 +98,9 @@ protected:
 	ECharacterControlType CurrentCharacterControlType;
 
 // Animation Section
+protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Stat)
-	uint8 bIsInAction : 1;
+	uint8 bIsDodging : 1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Stat, Meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<class UAnimMontage> BackflipMontage;
@@ -114,11 +116,13 @@ protected:
 	void ParryAnimationEnd(class UAnimMontage* TargetMontage, bool IsProperlyEnded);
 
 // Climb Ladder Section
+protected:
 	virtual void ClimbLadderTrace() override;
 	virtual void StartClimbLadder() override;
 	virtual void EndClimbLadder() override;
 
 // Mantle Section
+protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Stat, Meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<class UAnimMontage> Mantle1MMontage;
 
@@ -134,6 +138,7 @@ protected:
 	FTimerHandle MantleEndTimerHandle;
 
 // Parasail Section
+protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Parasail, Meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<class USkeletalMeshComponent> ParasailMeshComponent;
 
@@ -167,7 +172,27 @@ protected:
 	float CurrentDuration;
 
 // SpeedLine Section
+protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = SpeedLine, Meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<class UNiagaraComponent> SpeedLineNiagaraParticleSystemComponent;
 
+// Dead Section
+protected:
+	virtual void SetDead() override;
+
+// Stemina Section
+protected:
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Stemina, Meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<class UAnimMontage> ExhaustedMontage;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Stemina)
+	uint8 bIsExhausted : 1;
+
+	virtual void RecoveryStemina() override;
+	virtual void SetExhausted() override;
+	virtual void StartExhausted() override;
+	virtual void ExhaustedProcess() override;
+	virtual void EndExhausted() override;
+
+	FTimerHandle ExhaustedTimerHandle;
 };

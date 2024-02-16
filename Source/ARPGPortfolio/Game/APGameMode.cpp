@@ -2,6 +2,7 @@
 
 
 #include "Game/APGameMode.h"
+#include "Player/APPlayerController.h"
 
 DEFINE_LOG_CATEGORY(LogAPGameMode)
 
@@ -25,5 +26,18 @@ AAPGameMode::AAPGameMode()
 	else
 	{
 		UE_LOG(LogAPGameMode, Log, TEXT("Cannot find PlayerControllerClass"));
+	}
+}
+
+void AAPGameMode::OnPlayerDead()
+{
+	AAPPlayerController* APPlayerController = Cast<AAPPlayerController>(GetWorld()->GetFirstPlayerController());
+	if (APPlayerController)
+	{
+		// 게임오버 처리 APPlayerController->gameover
+	}
+	else
+	{
+		UE_LOG(LogAPGameMode, Log, TEXT("APPlayerController cast failed"));
 	}
 }
