@@ -56,8 +56,29 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, Meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<class UCameraComponent> FollowCamera;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Camera)
+	FVector CameraInitPos;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Camera)
+	FVector CameraZoomInPos;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Camera)
+	AActor* HitTarget;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Camera)
+	uint8 bIsTargetLock : 1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Camera)
+	uint8 bIsZoomIn : 1;
+
+	void TargetLock();
+
+
 // Input Section
 protected:
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, Meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<class UInputAction> TargetLockAction;
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, Meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<class UInputAction> JumpAction;
 
@@ -82,6 +103,18 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, Meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<class UInputAction> ParasailAction;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, Meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<class UInputAction> EquipWeaponAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, Meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<class UInputAction> AttackAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, Meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<class UInputAction> ChargeAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, Meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<class UInputAction> RightMouseButtonAction;
+
 	virtual void Jump() override;
 	void ShoulderMove(const FInputActionValue& Value);
 	void ShoulderLook(const FInputActionValue& Value);
@@ -92,6 +125,10 @@ protected:
 	void PressLeftCommand();
 	void PressRightCommand();
 	void ReleaseCommandTimerHandles();
+	void PressLeftMouseButton();
+	void ReleaseLeftMouseButton();
+	void PressRightMouseButton();
+	void ReleaseRightMouseButton();
 
 	TMap<ECommandType, FTimerHandle> CommandTimerHandles;
 	FTimerHandle StopDashTimerHandle;
@@ -195,4 +232,19 @@ protected:
 	virtual void EndExhausted() override;
 
 	FTimerHandle ExhaustedTimerHandle;
+
+// RightMouseButton Section
+protected:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Fire)
+	TMap<EWeaponType, TObjectPtr<class UAnimMontage>> RightMouseButtonActionMontageManager;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Fire)
+	uint8 bIsInRightMouseButtonAction : 1;
+
+	void RightMouseAction();
+	void ZoomIn();
+	void ZoomOut();
+
+	FTimerHandle RightMouseButtonActionTimerHandle;
+	float CurrentZoomDuration;
 };

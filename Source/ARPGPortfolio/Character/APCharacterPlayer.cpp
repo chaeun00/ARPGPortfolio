@@ -12,6 +12,7 @@
 #include "Animation/APAnimInstance.h"
 #include "Animation/AnimMontage.h"
 #include "Kismet/KismetSystemLibrary.h"
+#include "Kismet/KismetMathLibrary.h"
 #include "Components/CapsuleComponent.h"
 #include "NiagaraComponent.h"
 #include "Interface/APGameInterface.h"
@@ -25,16 +26,42 @@ AAPCharacterPlayer::AAPCharacterPlayer()
 	PrimaryActorTick.bCanEverTick = true;
 
 	// Camera Section
+	CameraInitPos = FVector(0, 0, 150);
+	CameraZoomInPos = FVector(200, 50, 150);
+
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
 	CameraBoom->SetupAttachment(RootComponent);
 	CameraBoom->TargetArmLength = 600.f;
 	CameraBoom->bUsePawnControlRotation = true;
 
 	FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
+	FollowCamera->SetRelativeLocationAndRotation(CameraInitPos, FRotator(-15, 0, 0));
 	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
 	FollowCamera->bUsePawnControlRotation = false;
 
+	bIsTargetLock = false;
+
 	//Input Section
+	static ConstructorHelpers::FObjectFinder<UInputAction> InputActionEquipWeaponRef(TEXT("/Script/EnhancedInput.InputAction'/Game/ARPGPortfolio/Input/Actions/IATest_EquipWeapon.IATest_EquipWeapon'"));
+	if (nullptr != InputActionEquipWeaponRef.Object)
+	{
+		EquipWeaponAction = InputActionEquipWeaponRef.Object;
+	}
+	else
+	{
+		UE_LOG(LogAPCharacterPlayer, Log, TEXT("InputActionEquipWeapon is NULL"));
+	}
+
+	static ConstructorHelpers::FObjectFinder<UInputAction> InputActionTargetLockRef(TEXT("/Script/EnhancedInput.InputAction'/Game/ARPGPortfolio/Input/Actions/IA_TargetLock.IA_TargetLock'"));
+	if (nullptr != InputActionTargetLockRef.Object)
+	{
+		TargetLockAction = InputActionTargetLockRef.Object;
+	}
+	else
+	{
+		UE_LOG(LogAPCharacterPlayer, Log, TEXT("InputActionTargetLock is NULL"));
+	}
+
 	static ConstructorHelpers::FObjectFinder<UInputAction> InputActionJumpRef(TEXT("/Script/EnhancedInput.InputAction'/Game/ARPGPortfolio/Input/Actions/IA_Jump.IA_Jump'"));
 	if (nullptr != InputActionJumpRef.Object)
 	{
@@ -122,6 +149,35 @@ AAPCharacterPlayer::AAPCharacterPlayer()
 		UE_LOG(LogAPCharacterPlayer, Log, TEXT("InputActionParasail is NULL"));
 	}
 
+	static ConstructorHelpers::FObjectFinder<UInputAction> InputActionAttackRef(TEXT("/Script/EnhancedInput.InputAction'/Game/ARPGPortfolio/Input/Actions/IA_Attack.IA_Attack'"));
+	if (nullptr != InputActionAttackRef.Object)
+	{
+		AttackAction = InputActionAttackRef.Object;
+	}
+	else
+	{
+		UE_LOG(LogAPCharacterPlayer, Log, TEXT("InputActionAttack is NULL"));
+	}
+
+	static ConstructorHelpers::FObjectFinder<UInputAction> InputActionChargeRef(TEXT("/Script/EnhancedInput.InputAction'/Game/ARPGPortfolio/Input/Actions/IA_Charge.IA_Charge'"));
+	if (nullptr != InputActionChargeRef.Object)
+	{
+		ChargeAction = InputActionChargeRef.Object;
+	}
+	else
+	{
+		UE_LOG(LogAPCharacterPlayer, Log, TEXT("InputActionCharge is NULL"));
+	}
+
+	static ConstructorHelpers::FObjectFinder<UInputAction> InputActionRightMouseButtonRef(TEXT("/Script/EnhancedInput.InputAction'/Game/ARPGPortfolio/Input/Actions/IA_Fire.IA_Fire'"));
+	if (nullptr != InputActionRightMouseButtonRef.Object)
+	{
+		RightMouseButtonAction = InputActionRightMouseButtonRef.Object;
+	}
+	else
+	{
+		UE_LOG(LogAPCharacterPlayer, Log, TEXT("InputActionRightMouseButton is NULL"));
+	}
 
 	static ConstructorHelpers::FObjectFinder<UAnimMontage> BackflipMontageRef(TEXT("/Script/Engine.AnimMontage'/Game/ARPGPortfolio/Animation/AM_Backflip.AM_Backflip'"));
 	if (BackflipMontageRef.Object)
@@ -238,11 +294,38 @@ AAPCharacterPlayer::AAPCharacterPlayer()
 	}
 
 	bIsExhausted = false;
+
+	// Fire Section
+	static ConstructorHelpers::FObjectFinder<UAnimMontage> FireAttackMontageRef(TEXT("/Script/Engine.AnimMontage'/Game/ARPGPortfolio/Animation/AM_Throw_Blade_Montage.AM_Throw_Blade_Montage'"));
+	if (FireAttackMontageRef.Object)
+	{
+		RightMouseButtonActionMontageManager.Add(EWeaponType::Blade, FireAttackMontageRef.Object);
+	}
 }
 
 void AAPCharacterPlayer::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
+	// TargetLock
+	if (bIsTargetLock)
+	{
+		if (nullptr != HitTarget)
+		{
+			GetController()->SetControlRotation(UKismetMathLibrary::FindLookAtRotation(GetActorLocation(), HitTarget->GetActorLocation()));
+		}
+		else
+		{
+			HitTarget = nullptr;
+			bIsTargetLock = false;
+
+			CurrentCharacterControlType = ECharacterControlType::Shoulder;
+			SetCharacterControl(CurrentCharacterControlType);
+
+			UAPAnimInstance* AnimInstance = Cast<UAPAnimInstance>(GetMesh()->GetAnimInstance());
+			AnimInstance->SetIsTargetingLock(false);
+		}
+	}
 
 	MantleTrace();
 	RecoveryStemina();
@@ -269,6 +352,7 @@ void AAPCharacterPlayer::SetupPlayerInputComponent(class UInputComponent* Player
 
 	UEnhancedInputComponent* EnhancedInputComponent = CastChecked<UEnhancedInputComponent>(PlayerInputComponent);
 
+	EnhancedInputComponent->BindAction(TargetLockAction, ETriggerEvent::Triggered, this, &AAPCharacterPlayer::TargetLock);
 	EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Triggered, this, &AAPCharacterPlayer::Jump);
 	EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &ACharacter::StopJumping);
 	EnhancedInputComponent->BindAction(ShoulderMoveAction, ETriggerEvent::Triggered, this, &AAPCharacterPlayer::ShoulderMove);
@@ -280,6 +364,11 @@ void AAPCharacterPlayer::SetupPlayerInputComponent(class UInputComponent* Player
 	EnhancedInputComponent->BindAction(RightAction, ETriggerEvent::Triggered, this, &AAPCharacterPlayer::PressRightCommand);
 	EnhancedInputComponent->BindAction(ParasailAction, ETriggerEvent::Triggered, this, &AAPCharacterPlayer::StartParasail);
 	EnhancedInputComponent->BindAction(ParasailAction, ETriggerEvent::Completed, this, &AAPCharacterPlayer::EndParasail);
+	EnhancedInputComponent->BindAction(EquipWeaponAction, ETriggerEvent::Triggered, this, &AAPCharacterPlayer::EquipWeapon);
+	EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Triggered, this, &AAPCharacterPlayer::PressLeftMouseButton);
+	EnhancedInputComponent->BindAction(ChargeAction, ETriggerEvent::Completed, this, &AAPCharacterPlayer::ReleaseLeftMouseButton);
+	EnhancedInputComponent->BindAction(RightMouseButtonAction, ETriggerEvent::Triggered, this, &AAPCharacterPlayer::PressRightMouseButton);
+	EnhancedInputComponent->BindAction(RightMouseButtonAction, ETriggerEvent::Completed, this, &AAPCharacterPlayer::ReleaseRightMouseButton);
 }
 
 void AAPCharacterPlayer::ChangeCharacterControl()
@@ -320,14 +409,53 @@ void AAPCharacterPlayer::SetCharacterControlData(const UAPCharacterControlData* 
 	CameraBoom->bDoCollisionTest = CharacterControlData->bDoCollisionTest;
 }
 
+void AAPCharacterPlayer::TargetLock()
+{
+	UAPAnimInstance* AnimInstance = Cast<UAPAnimInstance>(GetMesh()->GetAnimInstance());
+
+	if (bIsTargetLock)
+	{
+		HitTarget = nullptr;
+		bIsTargetLock = false;
+
+		AnimInstance->SetIsTargetingLock(false);
+	}
+	else
+	{
+		FVector Start = GetActorLocation();
+		FVector End = Start + FollowCamera->GetForwardVector() * 1000;
+
+		TArray<TEnumAsByte<EObjectTypeQuery>> ObjectTypesArray;
+		ObjectTypesArray.Add(UEngineTypes::ConvertToObjectType(ECollisionChannel::ECC_Pawn));
+		TArray<AActor*> ActorsToIgnore;
+		ActorsToIgnore.Add(this);
+		FHitResult HitResult;
+
+		if (UKismetSystemLibrary::SphereTraceSingleForObjects(GetWorld(), Start, End, 100.f, ObjectTypesArray, false, ActorsToIgnore, EDrawDebugTrace::ForDuration, HitResult, true))
+		{
+			HitTarget = HitResult.GetActor();
+			bIsTargetLock = true;
+
+			CurrentCharacterControlType = ECharacterControlType::TargetLock;
+			SetCharacterControl(CurrentCharacterControlType);
+
+			AnimInstance->SetIsTargetingLock(true);
+		}
+		else
+		{
+			HitTarget = nullptr;
+		}
+	}
+}
+
 void AAPCharacterPlayer::Jump()
 {
-	if (bIsDodging || bIsExhausted)
+	if (bIsDodging || bIsExhausted || CurrentCombo || bIsJumpAttacking || bIsChargeReady || bIsChargeComplete || bIsInRightMouseButtonAction)
 	{
 		return;
 	}
 
-	UAPAnimInstance* AnimInstance = Cast < UAPAnimInstance>(GetMesh()->GetAnimInstance());
+	UAPAnimInstance* AnimInstance = Cast<UAPAnimInstance>(GetMesh()->GetAnimInstance());
 	AnimInstance->StopAllMontages(0.0f);
 	if (AnimInstance->GetIsJumping() || AnimInstance->GetIsFalling())
 	{
@@ -376,7 +504,7 @@ void AAPCharacterPlayer::Jump()
 
 void AAPCharacterPlayer::ShoulderMove(const FInputActionValue& Value)
 {
-	if (bIsDodging && !bIsParasailing)
+	if (bIsDodging && !bIsParasailing || CurrentCombo || bIsJumpAttacking)
 	{
 		return;
 	}
@@ -403,7 +531,7 @@ void AAPCharacterPlayer::ShoulderLook(const FInputActionValue& Value)
 
 void AAPCharacterPlayer::Dash()
 {
-	if (bIsExhausted)
+	if (bIsExhausted || CurrentCombo || bIsJumpAttacking || bIsChargeReady || bIsChargeComplete || bIsInRightMouseButtonAction)
 	{
 		return;
 	}
@@ -435,6 +563,11 @@ void AAPCharacterPlayer::StopDash()
 
 void AAPCharacterPlayer::InitSpeed()
 {
+	if (bIsChargeComplete || bIsInRightMouseButtonAction)
+	{
+		return;
+	}
+
 	GetWorldTimerManager().ClearTimer(StopDashTimerHandle);
 	GetCharacterMovement()->MaxAcceleration = MAX_ACCELERATION_WALK;
 	GetCharacterMovement()->MaxWalkSpeed = MAX_SPEED_WALK;
@@ -488,9 +621,43 @@ void AAPCharacterPlayer::ReleaseCommandTimerHandles()
 	CommandTimerHandles[ECommandType::Right].Invalidate();
 }
 
+void AAPCharacterPlayer::PressLeftMouseButton()
+{
+	if (bIsExhausted || bIsDodging || bIsParasailing || bIsJumpAttacking || bIsChargeReady || bIsChargeComplete || bIsInRightMouseButtonAction)
+	{
+		return;
+	}
+
+	StopDash();
+
+	if (GetMovementComponent()->IsFalling() && !bIsJumpAttacking && !CurrentCombo)
+	{
+		JumpAttackBegin();
+	}
+	else
+	{
+		ProcessComboCommand();
+	}
+}
+
+void AAPCharacterPlayer::ReleaseLeftMouseButton()
+{
+	bIsChargeReady = false;
+	InitSpeed();
+
+	if (bIsChargeComplete)
+	{
+		ChargeAttack();
+	}
+	else
+	{
+		ChargeCancel();
+	}
+}
+
 void AAPCharacterPlayer::QuickStep(const ECommandType& InCommandType)
 {
-	if (bIsExhausted)
+	if (bIsExhausted || CurrentCombo || bIsJumpAttacking || bIsChargeReady || bIsChargeComplete || bIsInRightMouseButtonAction)
 	{
 		return;
 	}
@@ -613,7 +780,7 @@ void AAPCharacterPlayer::MantleEnd()
 
 void AAPCharacterPlayer::StartParasail()
 {
-	if (bIsExhausted)
+	if (bIsExhausted || CurrentCombo || bIsJumpAttacking || bIsChargeReady || bIsChargeComplete || bIsInRightMouseButtonAction)
 	{
 		return;
 	}
@@ -699,7 +866,7 @@ void AAPCharacterPlayer::SetDead()
 void AAPCharacterPlayer::RecoveryStemina()
 {
 	UAPAnimInstance* AnimInstance = Cast<UAPAnimInstance>(GetMesh()->GetAnimInstance());
-	if (bIsParasailing || bIsDodging
+	if (bIsParasailing || bIsDodging || CurrentCombo || bIsJumpAttacking || bIsChargeReady || bIsChargeComplete || bIsInRightMouseButtonAction
 		|| AnimInstance->GetIsJumping() || AnimInstance->GetIsFalling() || AnimInstance->Montage_IsPlaying(ExhaustedMontage)
 		|| GetCharacterMovement()->MaxAcceleration == MAX_ACCELERATION_DASH)
 	{
@@ -733,7 +900,7 @@ void AAPCharacterPlayer::ExhaustedProcess()
 	{
 		EndParasail();
 	}
-	else if (bIsDodging || AnimInstance->GetIsJumping() || AnimInstance->GetIsFalling())
+	else if (bIsDodging || AnimInstance->GetIsJumping() || AnimInstance->GetIsFalling() || CurrentCombo || bIsJumpAttacking || bIsInRightMouseButtonAction)
 	{
 		return;
 	}
@@ -748,4 +915,126 @@ void AAPCharacterPlayer::ExhaustedProcess()
 void AAPCharacterPlayer::EndExhausted()
 {
 	GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_Walking);
+}
+
+void AAPCharacterPlayer::PressRightMouseButton()
+{
+	if (!bIsInRightMouseButtonAction)
+	{
+		bIsInRightMouseButtonAction = true;
+
+		InitSpeed();
+		GetCharacterMovement()->MaxAcceleration = MAX_ACCELERATION_WALK;
+		GetCharacterMovement()->MaxWalkSpeed = MAX_SPEED_WALK / 2;
+
+		RightMouseButtonActionMontageManager[EWeaponType::Blade]->bEnableAutoBlendOut = false;
+
+		UAPAnimInstance* AnimInstance = Cast<UAPAnimInstance>(GetMesh()->GetAnimInstance());
+		check(AnimInstance);
+		AnimInstance->StopAllMontages(0);
+		AnimInstance->Montage_Play(RightMouseButtonActionMontageManager[EWeaponType::Blade], 1);
+
+		CurrentZoomDuration = 0;
+		RightMouseButtonActionTimerHandle.Invalidate();
+		GetWorld()->GetTimerManager().SetTimer(RightMouseButtonActionTimerHandle, this, &AAPCharacterPlayer::ZoomIn, FApp::GetDeltaTime(), false);
+	}
+}
+
+void AAPCharacterPlayer::ReleaseRightMouseButton()
+{
+	if (bIsZoomIn)
+	{
+		UAPAnimInstance* AnimInstance = Cast<UAPAnimInstance>(GetMesh()->GetAnimInstance());
+		check(AnimInstance);
+		AnimInstance->Montage_Resume(RightMouseButtonActionMontageManager[EWeaponType::Blade]);
+
+		RightMouseButtonActionTimerHandle.Invalidate();
+		GetWorld()->GetTimerManager().SetTimer(RightMouseButtonActionTimerHandle, this, &AAPCharacterPlayer::RightMouseAction, 0.23f, false);
+	}
+	else
+	{
+		RightMouseButtonActionMontageManager[EWeaponType::Blade]->bEnableAutoBlendOut = true;
+
+		UAPAnimInstance* AnimInstance = Cast<UAPAnimInstance>(GetMesh()->GetAnimInstance());
+		check(AnimInstance);
+		AnimInstance->StopAllMontages(0);
+		
+		InitSpeed();
+		bIsInRightMouseButtonAction = false;
+
+		CurrentZoomDuration = 0;
+		RightMouseButtonActionTimerHandle.Invalidate();
+		GetWorld()->GetTimerManager().SetTimer(RightMouseButtonActionTimerHandle, this, &AAPCharacterPlayer::ZoomOut, FApp::GetDeltaTime(), false);
+	}
+}
+
+void AAPCharacterPlayer::RightMouseAction()
+{
+	UAPAnimInstance* AnimInstance = Cast<UAPAnimInstance>(GetMesh()->GetAnimInstance());
+	check(AnimInstance);
+	AnimInstance->Montage_Pause(RightMouseButtonActionMontageManager[EWeaponType::Blade]);
+
+	// 발사 Process
+	Stat->ApplyUsedStemina(30);
+
+	// 돌아온 Spear 잡으면
+	AnimInstance->Montage_Resume(RightMouseButtonActionMontageManager[EWeaponType::Blade]);
+	AnimInstance->Montage_JumpToSection(TEXT("Grab"), RightMouseButtonActionMontageManager[EWeaponType::Blade]);
+	RightMouseButtonActionMontageManager[EWeaponType::Blade]->bEnableAutoBlendOut = true;
+
+	RightMouseButtonActionTimerHandle.Invalidate();
+	GetWorld()->GetTimerManager().SetTimer(RightMouseButtonActionTimerHandle, this, &AAPCharacterPlayer::ZoomOut, 2.2f, false);
+}
+
+void AAPCharacterPlayer::ZoomIn()
+{
+	if (!bIsInRightMouseButtonAction)
+	{
+		return;
+	}
+
+	CurrentZoomDuration += FApp::GetDeltaTime();
+	UE_LOG(LogTemp, Log, TEXT("%f"), CurrentZoomDuration);
+	if (CurrentZoomDuration >= 1.1f)
+	{
+		CurrentZoomDuration = 0;
+		bIsZoomIn = true;
+
+		UAPAnimInstance* AnimInstance = Cast<UAPAnimInstance>(GetMesh()->GetAnimInstance());
+		check(AnimInstance);
+		AnimInstance->Montage_Pause(RightMouseButtonActionMontageManager[EWeaponType::Blade]);
+		UE_LOG(LogTemp, Log, TEXT("Montage Pause"));
+
+		return;
+	}
+
+	FollowCamera->SetRelativeLocation(FMath::Lerp(FollowCamera->GetRelativeLocation(), CameraZoomInPos, CurrentZoomDuration / 1.1f));
+
+	GetWorld()->GetTimerManager().SetTimer(RightMouseButtonActionTimerHandle, this, &AAPCharacterPlayer::ZoomIn, FApp::GetDeltaTime(), false);
+}
+
+void AAPCharacterPlayer::ZoomOut()
+{
+	if (bIsInRightMouseButtonAction)
+	{
+		return;
+	}
+
+	CurrentZoomDuration += FApp::GetDeltaTime();
+	if (CurrentZoomDuration >= 0.3f)
+	{
+		CurrentZoomDuration = 0;
+		bIsZoomIn = false;
+		bIsInRightMouseButtonAction = false;
+
+		UAPAnimInstance* AnimInstance = Cast<UAPAnimInstance>(GetMesh()->GetAnimInstance());
+		check(AnimInstance);
+		AnimInstance->StopAllMontages(0);
+
+		return;
+	}
+
+	FollowCamera->SetRelativeLocation(FMath::Lerp(FollowCamera->GetRelativeLocation(), CameraInitPos, CurrentZoomDuration / 0.3f));
+
+	GetWorld()->GetTimerManager().SetTimer(RightMouseButtonActionTimerHandle, this, &AAPCharacterPlayer::ZoomOut, FApp::GetDeltaTime(), false);
 }

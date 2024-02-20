@@ -4,6 +4,15 @@
 #include "Engine/DataTable.h"
 #include "APCharacterStat.generated.h"
 
+UENUM(BlueprintType)
+enum class EWeaponType : uint8
+{
+	Blade = 0,
+	Spear,
+	Bow,
+	Shield
+};
+
 USTRUCT(BlueprintType)
 struct FAPCharacterStat : public FTableRowBase
 {

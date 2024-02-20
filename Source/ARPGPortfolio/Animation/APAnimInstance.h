@@ -25,6 +25,7 @@ public:
 	FORCEINLINE uint8 GetIsFalling() { return bIsFalling; }
 	FORCEINLINE void SetIsParasailing(uint8 InValue) { bIsParasailing = InValue; }
 	FORCEINLINE void SetIsClimbingLadder(uint8 InValue) { bIsClimbingLadder = InValue; }
+	FORCEINLINE void SetIsTargetingLock(uint8 InValue) { bIsTargetingLock = InValue; }
 
 protected:
 	virtual void NativeInitializeAnimation() override;
@@ -63,4 +64,7 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Character)
 	uint8 bIsClimbingLadder : 1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Character)
+	uint8 bIsTargetingLock : 1;
 };

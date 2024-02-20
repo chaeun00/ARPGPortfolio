@@ -5,6 +5,9 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "GameData/APCharacterStat.h"
+#include "Interface/APAnimationAttackInterface.h"
+#include "Interface/APJumpAttackInterface.h"
+#include "Interface/APChargeAttackInterface.h"
 #include "APCharacterBase.generated.h"
 
 #define	GRAVITYSCALE_DEFAULT		1.6f
@@ -21,11 +24,12 @@ UENUM()
 enum class ECharacterControlType : uint8
 {
 	Shoulder,
+	TargetLock,
 	Max
 };
 
 UCLASS()
-class ARPGPORTFOLIO_API AAPCharacterBase : public ACharacter
+class ARPGPORTFOLIO_API AAPCharacterBase : public ACharacter, public IAPAnimationAttackInterface, public IAPJumpAttackInterface, public IAPChargeAttackInterface
 {
 	GENERATED_BODY()
 
@@ -63,4 +67,95 @@ protected:
 	void PlayDeadAnimation();
 
 	float DeadEventDelayTime;
+
+// Weapon Section
+protected:
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Equipment, Meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<class USkeletalMeshComponent> Weapon;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Equipment, Meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<class UBoxComponent> BoxCollider;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Camera)
+	TSubclassOf<class UCameraShakeBase> AttackHitCameraShake;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Weapon)
+	EWeaponType CurrentWeaponType;
+
+	UFUNCTION()
+	void OnOverlapBegin(class UPrimitiveComponent* OverlappedComp, class AActor* OtherActor, class UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+
+	UFUNCTION()
+	void OnOverlapEnd(class UPrimitiveComponent* OverlappedComp, class AActor* OtherActor, class UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
+
+	uint32 OverlappingEnemiesCount;
+
+	virtual void EquipWeapon(/*class UAPItemData* InItemData*/);
+	virtual void WeaponCollisionOn() override;
+	virtual void WeaponCollisionOff() override;
+
+// Combo Action Section
+protected:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Animation)
+	TMap<EWeaponType, TObjectPtr<class UAnimMontage>> ComboActionMontageManager;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Attack, Meta = (AllowPrivateAccess = "true"))
+	TMap<EWeaponType, TObjectPtr<class UAPComboActionData>> ComboActionDataManager;
+
+	void ProcessComboCommand();
+	void ComboActionBegin();
+	void ComboActionEnd(class UAnimMontage* TargetMontage, bool IsProperlyEnded);
+	virtual void NotifyComboActionEnd();
+	void SetComboCheckTimer();
+	void ComboCheck();
+
+	int32 CurrentCombo = 0;
+	FTimerHandle ComboTimerHandle;
+	bool HasNextComboCommand;
+
+// Charge Attack Section
+protected:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Animation)
+	TMap<EWeaponType, TObjectPtr<class UAnimMontage>> ChargeAttackMontageManager;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ChargeAttack)
+	TObjectPtr<class UParticleSystemComponent> ChargingAura;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ChargeAttack)
+	TObjectPtr<class UParticleSystemComponent> ChargeCompleteAura;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ChargeAttack)
+	uint8 bIsChargeReady : 1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ChargeAttack)
+	uint8 bIsChargeComplete : 1;
+
+	virtual void ChargeStart() override;
+	virtual void ChargeEnd() override;
+	virtual void ChargeCancel() override;
+	virtual void ChargeAttack() override;
+
+	void SetChargeCheckTimer();
+
+	float UsedSteminaForCharge;
+	FTimerHandle ChargeAttackTimerHandle;
+
+// Jump Attack Section
+protected:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Animation)
+	TMap<EWeaponType, TObjectPtr<class UAnimMontage>> JumpAttackMontageManager;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = JumpAttack, Meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<class USphereComponent> SphereCollider;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = JumpAttack)
+	uint8 bIsJumpAttacking : 1;
+
+	void JumpAttackBegin();
+	void JumpAttackEnd();
+	void SetIsGroundCheckTimer();
+	virtual void JumpAttackCollisionOn() override;
+	virtual void JumpAttackCollisionOff() override;
+
+	FTimerHandle JumpAttackTimerHandle;
 };
