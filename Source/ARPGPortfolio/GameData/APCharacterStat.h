@@ -10,7 +10,6 @@ enum class EWeaponType : uint8
 	Blade = 0,
 	Spear,
 	Bow,
-	Shield
 };
 
 USTRUCT(BlueprintType)

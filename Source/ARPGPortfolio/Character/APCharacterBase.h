@@ -8,6 +8,7 @@
 #include "Interface/APAnimationAttackInterface.h"
 #include "Interface/APJumpAttackInterface.h"
 #include "Interface/APChargeAttackInterface.h"
+#include "Interface/APShieldParryInterface.h"
 #include "APCharacterBase.generated.h"
 
 #define	GRAVITYSCALE_DEFAULT		1.6f
@@ -29,7 +30,7 @@ enum class ECharacterControlType : uint8
 };
 
 UCLASS()
-class ARPGPORTFOLIO_API AAPCharacterBase : public ACharacter, public IAPAnimationAttackInterface, public IAPJumpAttackInterface, public IAPChargeAttackInterface
+class ARPGPORTFOLIO_API AAPCharacterBase : public ACharacter, public IAPAnimationAttackInterface, public IAPJumpAttackInterface, public IAPChargeAttackInterface, public IAPShieldParryInterface
 {
 	GENERATED_BODY()
 
@@ -56,7 +57,14 @@ public:
 
 // Attack Hit Section
 protected:
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Stat)
+	uint8 bIsInvincible : 1;
+
 	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, AActor* DamageCauser) override;
+	void OnInvincible();
+	void OffInvincible();
+
+	FTimerHandle InvincibilityTimerHandle;
 
 // Dead Section
 protected:
@@ -90,9 +98,36 @@ protected:
 
 	uint32 OverlappingEnemiesCount;
 
-	virtual void EquipWeapon(/*class UAPItemData* InItemData*/);
+	virtual void EquipWeapon(EWeaponType InWeaponType);
 	virtual void WeaponCollisionOn() override;
 	virtual void WeaponCollisionOff() override;
+
+// Shield Section
+protected:
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Equipment, Meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<class UStaticMeshComponent> Shield;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Equipment, Meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<class UBoxComponent> ShieldCollider;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Animation)
+	TObjectPtr<class UAnimMontage> ShieldHitMontage;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Animation)
+	TObjectPtr<class UAnimMontage> ShieldParryMontage;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Equipment)
+	uint8 bIsPlayingShieldParry : 1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Equipment)
+	uint8 bIsNiceShieldParryTiming : 1;
+
+	virtual void ShieldCollisionOn();
+	virtual void ShieldCollisionOff();
+	virtual void ShieldParryMontageOn();
+	virtual void ShieldParryMontageOff() override;
+	virtual void ShieldParryTimingOn() override;
+	virtual void ShieldParryTimingOff() override;
 
 // Combo Action Section
 protected:

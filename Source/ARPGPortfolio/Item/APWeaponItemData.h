@@ -30,11 +30,23 @@ public:
 	UPROPERTY(EditAnywhere, Category = Weapon)
 	TSoftObjectPtr<USkeletalMesh> WeaponMesh;
 
-	UPROPERTY(EditAnywhere, Category = Collision)
+	UPROPERTY(EditAnywhere, Category = Weapon)
+	FVector WeaponMeshScale;
+
+	UPROPERTY(EditAnywhere, Category = Weapon)
 	FVector ColliderPosition;
 
-	UPROPERTY(EditAnywhere, Category = Collision)
+	UPROPERTY(EditAnywhere, Category = Weapon)
 	FVector ColliderScale;
+
+	UPROPERTY(EditAnywhere, Category = Shield)
+	TSoftObjectPtr<UStaticMesh> ShieldMesh;
+
+	UPROPERTY(EditAnywhere, Category = Shield)
+	FVector ShieldColliderPosition;
+
+	UPROPERTY(EditAnywhere, Category = Shield)
+	FVector ShieldColliderScale;
 
 	UPROPERTY(EditAnywhere, Category = Stat)
 	FAPCharacterStat ModifierStat;

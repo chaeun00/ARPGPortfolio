@@ -104,7 +104,10 @@ protected:
 	TObjectPtr<class UInputAction> ParasailAction;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, Meta = (AllowPrivateAccess = "true"))
-	TObjectPtr<class UInputAction> EquipWeaponAction;
+	TObjectPtr<class UInputAction> EquipBladeAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, Meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<class UInputAction> EquipSpearAction;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, Meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<class UInputAction> AttackAction;
@@ -235,14 +238,14 @@ protected:
 
 // RightMouseButton Section
 protected:
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Fire)
-	TMap<EWeaponType, TObjectPtr<class UAnimMontage>> RightMouseButtonActionMontageManager;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Fire, Meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<class UAnimMontage> JavelinMontage;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Fire)
 	uint8 bIsInRightMouseButtonAction : 1;
 
-	void RightMouseAction();
 	void ZoomIn();
+	void StartZoomOut();
 	void ZoomOut();
 
 	FTimerHandle RightMouseButtonActionTimerHandle;

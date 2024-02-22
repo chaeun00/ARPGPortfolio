@@ -7,3 +7,16 @@ AAPCharacterNonPlayer::AAPCharacterNonPlayer()
 {
 	Tags.Add(TEXT("Enemy"));
 }
+
+void AAPCharacterNonPlayer::PostInitializeComponents()
+{
+	Super::PostInitializeComponents();
+
+	EquipWeapon(EWeaponType::Blade);
+	GetWorld()->GetTimerManager().SetTimer(AttackHandle, this, &AAPCharacterNonPlayer::AIAttack, 2, true);
+}
+
+void AAPCharacterNonPlayer::AIAttack()
+{
+	ProcessComboCommand();
+}

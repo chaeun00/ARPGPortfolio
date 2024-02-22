@@ -16,6 +16,7 @@
 #include "Components/CapsuleComponent.h"
 #include "NiagaraComponent.h"
 #include "Interface/APGameInterface.h"
+#include "Projectile/APJavelin.h"
 #include "CharacterStat/APCharacterStatComponent.h"
 
 DEFINE_LOG_CATEGORY(LogAPCharacterPlayer)
@@ -24,6 +25,7 @@ DEFINE_LOG_CATEGORY(LogAPCharacterPlayer)
 AAPCharacterPlayer::AAPCharacterPlayer()
 {
 	PrimaryActorTick.bCanEverTick = true;
+	Tags.Add(TEXT("Player"));
 
 	// Camera Section
 	CameraInitPos = FVector(0, 0, 150);
@@ -42,14 +44,24 @@ AAPCharacterPlayer::AAPCharacterPlayer()
 	bIsTargetLock = false;
 
 	//Input Section
-	static ConstructorHelpers::FObjectFinder<UInputAction> InputActionEquipWeaponRef(TEXT("/Script/EnhancedInput.InputAction'/Game/ARPGPortfolio/Input/Actions/IATest_EquipWeapon.IATest_EquipWeapon'"));
-	if (nullptr != InputActionEquipWeaponRef.Object)
+	static ConstructorHelpers::FObjectFinder<UInputAction> InputActionEquipBladeRef(TEXT("/Script/EnhancedInput.InputAction'/Game/ARPGPortfolio/Input/Actions/IA_EquipWeapon_Blade.IA_EquipWeapon_Blade'"));
+	if (nullptr != InputActionEquipBladeRef.Object)
 	{
-		EquipWeaponAction = InputActionEquipWeaponRef.Object;
+		EquipBladeAction = InputActionEquipBladeRef.Object;
 	}
 	else
 	{
-		UE_LOG(LogAPCharacterPlayer, Log, TEXT("InputActionEquipWeapon is NULL"));
+		UE_LOG(LogAPCharacterPlayer, Log, TEXT("InputActionEquipBlade is NULL"));
+	}
+
+	static ConstructorHelpers::FObjectFinder<UInputAction> InputActionEquipSpearRef(TEXT("/Script/EnhancedInput.InputAction'/Game/ARPGPortfolio/Input/Actions/IA_EquipWeapon_Spear.IA_EquipWeapon_Spear'"));
+	if (nullptr != InputActionEquipSpearRef.Object)
+	{
+		EquipSpearAction = InputActionEquipSpearRef.Object;
+	}
+	else
+	{
+		UE_LOG(LogAPCharacterPlayer, Log, TEXT("InputActionEquipSpear is NULL"));
 	}
 
 	static ConstructorHelpers::FObjectFinder<UInputAction> InputActionTargetLockRef(TEXT("/Script/EnhancedInput.InputAction'/Game/ARPGPortfolio/Input/Actions/IA_TargetLock.IA_TargetLock'"));
@@ -296,10 +308,10 @@ AAPCharacterPlayer::AAPCharacterPlayer()
 	bIsExhausted = false;
 
 	// Fire Section
-	static ConstructorHelpers::FObjectFinder<UAnimMontage> FireAttackMontageRef(TEXT("/Script/Engine.AnimMontage'/Game/ARPGPortfolio/Animation/AM_Throw_Blade_Montage.AM_Throw_Blade_Montage'"));
-	if (FireAttackMontageRef.Object)
+	static ConstructorHelpers::FObjectFinder<UAnimMontage> JavelinMontageRef(TEXT("/Script/Engine.AnimMontage'/Game/ARPGPortfolio/Animation/AM_Throw_Spear_Montage.AM_Throw_Spear_Montage'"));
+	if (JavelinMontageRef.Object)
 	{
-		RightMouseButtonActionMontageManager.Add(EWeaponType::Blade, FireAttackMontageRef.Object);
+		JavelinMontage = JavelinMontageRef.Object;
 	}
 }
 
@@ -344,6 +356,7 @@ void AAPCharacterPlayer::BeginPlay()
 	}
 
 	SetCharacterControl(CurrentCharacterControlType);
+	EquipWeapon(EWeaponType::Blade);
 }
 
 void AAPCharacterPlayer::SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent)
@@ -364,7 +377,8 @@ void AAPCharacterPlayer::SetupPlayerInputComponent(class UInputComponent* Player
 	EnhancedInputComponent->BindAction(RightAction, ETriggerEvent::Triggered, this, &AAPCharacterPlayer::PressRightCommand);
 	EnhancedInputComponent->BindAction(ParasailAction, ETriggerEvent::Triggered, this, &AAPCharacterPlayer::StartParasail);
 	EnhancedInputComponent->BindAction(ParasailAction, ETriggerEvent::Completed, this, &AAPCharacterPlayer::EndParasail);
-	EnhancedInputComponent->BindAction(EquipWeaponAction, ETriggerEvent::Triggered, this, &AAPCharacterPlayer::EquipWeapon);
+	EnhancedInputComponent->BindAction(EquipBladeAction, ETriggerEvent::Triggered, this, &AAPCharacterPlayer::EquipWeapon, EWeaponType::Blade);
+	EnhancedInputComponent->BindAction(EquipSpearAction, ETriggerEvent::Triggered, this, &AAPCharacterPlayer::EquipWeapon, EWeaponType::Spear);
 	EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Triggered, this, &AAPCharacterPlayer::PressLeftMouseButton);
 	EnhancedInputComponent->BindAction(ChargeAction, ETriggerEvent::Completed, this, &AAPCharacterPlayer::ReleaseLeftMouseButton);
 	EnhancedInputComponent->BindAction(RightMouseButtonAction, ETriggerEvent::Triggered, this, &AAPCharacterPlayer::PressRightMouseButton);
@@ -419,6 +433,9 @@ void AAPCharacterPlayer::TargetLock()
 		bIsTargetLock = false;
 
 		AnimInstance->SetIsTargetingLock(false);
+
+		CurrentCharacterControlType = ECharacterControlType::Shoulder;
+		SetCharacterControl(CurrentCharacterControlType);
 	}
 	else
 	{
@@ -623,7 +640,7 @@ void AAPCharacterPlayer::ReleaseCommandTimerHandles()
 
 void AAPCharacterPlayer::PressLeftMouseButton()
 {
-	if (bIsExhausted || bIsDodging || bIsParasailing || bIsJumpAttacking || bIsChargeReady || bIsChargeComplete || bIsInRightMouseButtonAction)
+	if (bIsExhausted || bIsDodging || bIsParasailing || bIsJumpAttacking || bIsChargeReady || bIsChargeComplete)
 	{
 		return;
 	}
@@ -636,7 +653,14 @@ void AAPCharacterPlayer::PressLeftMouseButton()
 	}
 	else
 	{
-		ProcessComboCommand();
+		if (CurrentWeaponType == EWeaponType::Blade && bIsInRightMouseButtonAction)
+		{
+			ShieldParryMontageOn();
+		}
+		else
+		{
+			ProcessComboCommand();
+		}
 	}
 }
 
@@ -874,7 +898,7 @@ void AAPCharacterPlayer::RecoveryStemina()
 	}
 
 	Stat->RecoveryStemina(FApp::GetDeltaTime() * 20);
-	UE_LOG(LogAPCharacterPlayer, Log, TEXT("RecoveryStemina: %f"), Stat->GetCurrentStemina());
+	//UE_LOG(LogAPCharacterPlayer, Log, TEXT("RecoveryStemina: %f"), Stat->GetCurrentStemina());
 	if (Stat->GetCurrentStemina() == Stat->GetTotalStat().MaxStemina)
 	{
 		bIsExhausted = false;
@@ -927,114 +951,130 @@ void AAPCharacterPlayer::PressRightMouseButton()
 		GetCharacterMovement()->MaxAcceleration = MAX_ACCELERATION_WALK;
 		GetCharacterMovement()->MaxWalkSpeed = MAX_SPEED_WALK / 2;
 
-		RightMouseButtonActionMontageManager[EWeaponType::Blade]->bEnableAutoBlendOut = false;
-
 		UAPAnimInstance* AnimInstance = Cast<UAPAnimInstance>(GetMesh()->GetAnimInstance());
 		check(AnimInstance);
 		AnimInstance->StopAllMontages(0);
-		AnimInstance->Montage_Play(RightMouseButtonActionMontageManager[EWeaponType::Blade], 1);
 
+		switch (CurrentWeaponType)
+		{
+		case EWeaponType::Blade:
+			AnimInstance->SetIsHoldingShield(true);
+			break;
+
+		case EWeaponType::Spear:
+			AnimInstance->Montage_Play(JavelinMontage);
+			break;
+
+		case EWeaponType::Bow:
+			break;
+
+		default:
+			break;
+		}
+		
 		CurrentZoomDuration = 0;
-		RightMouseButtonActionTimerHandle.Invalidate();
-		GetWorld()->GetTimerManager().SetTimer(RightMouseButtonActionTimerHandle, this, &AAPCharacterPlayer::ZoomIn, FApp::GetDeltaTime(), false);
+		GetWorldTimerManager().ClearTimer(RightMouseButtonActionTimerHandle);
+		GetWorld()->GetTimerManager().SetTimer(RightMouseButtonActionTimerHandle, this, &AAPCharacterPlayer::ZoomIn, FApp::GetDeltaTime(), true);
 	}
 }
 
 void AAPCharacterPlayer::ReleaseRightMouseButton()
 {
-	if (bIsZoomIn)
-	{
-		UAPAnimInstance* AnimInstance = Cast<UAPAnimInstance>(GetMesh()->GetAnimInstance());
-		check(AnimInstance);
-		AnimInstance->Montage_Resume(RightMouseButtonActionMontageManager[EWeaponType::Blade]);
-
-		RightMouseButtonActionTimerHandle.Invalidate();
-		GetWorld()->GetTimerManager().SetTimer(RightMouseButtonActionTimerHandle, this, &AAPCharacterPlayer::RightMouseAction, 0.23f, false);
-	}
-	else
-	{
-		RightMouseButtonActionMontageManager[EWeaponType::Blade]->bEnableAutoBlendOut = true;
-
-		UAPAnimInstance* AnimInstance = Cast<UAPAnimInstance>(GetMesh()->GetAnimInstance());
-		check(AnimInstance);
-		AnimInstance->StopAllMontages(0);
-		
-		InitSpeed();
-		bIsInRightMouseButtonAction = false;
-
-		CurrentZoomDuration = 0;
-		RightMouseButtonActionTimerHandle.Invalidate();
-		GetWorld()->GetTimerManager().SetTimer(RightMouseButtonActionTimerHandle, this, &AAPCharacterPlayer::ZoomOut, FApp::GetDeltaTime(), false);
-	}
-}
-
-void AAPCharacterPlayer::RightMouseAction()
-{
 	UAPAnimInstance* AnimInstance = Cast<UAPAnimInstance>(GetMesh()->GetAnimInstance());
 	check(AnimInstance);
-	AnimInstance->Montage_Pause(RightMouseButtonActionMontageManager[EWeaponType::Blade]);
 
-	// 발사 Process
-	Stat->ApplyUsedStemina(30);
+	switch (CurrentWeaponType)
+	{
+	case EWeaponType::Blade:
+		ShieldCollisionOff();
 
-	// 돌아온 Spear 잡으면
-	AnimInstance->Montage_Resume(RightMouseButtonActionMontageManager[EWeaponType::Blade]);
-	AnimInstance->Montage_JumpToSection(TEXT("Grab"), RightMouseButtonActionMontageManager[EWeaponType::Blade]);
-	RightMouseButtonActionMontageManager[EWeaponType::Blade]->bEnableAutoBlendOut = true;
+		AnimInstance->SetIsHoldingShield(false);
+		AnimInstance->StopAllMontages(0);
+		
+		StartZoomOut();
+		break;
 
-	RightMouseButtonActionTimerHandle.Invalidate();
-	GetWorld()->GetTimerManager().SetTimer(RightMouseButtonActionTimerHandle, this, &AAPCharacterPlayer::ZoomOut, 2.2f, false);
+	case EWeaponType::Spear:
+		if (bIsZoomIn)
+		{
+			AnimInstance->Montage_Resume(JavelinMontage);
+			AnimInstance->Montage_JumpToSection(TEXT("Throw"), JavelinMontage);
+			
+			Weapon->SetSkeletalMesh(nullptr);
+			Stat->ApplyUsedStemina(30);
+
+			AActor* Javelin = GetWorld()->SpawnActor(AAPJavelin::StaticClass());
+			CastChecked<AAPJavelin>(Javelin)->OnReleased(GetMesh()->GetSocketLocation(TEXT("hand_rSocket")), UKismetMathLibrary::GetForwardVector(GetControlRotation()));
+		}
+
+		StartZoomOut();
+		break;
+
+	case EWeaponType::Bow:
+		break;
+	}
 }
 
 void AAPCharacterPlayer::ZoomIn()
 {
-	if (!bIsInRightMouseButtonAction)
-	{
-		return;
-	}
+	UAPAnimInstance* AnimInstance = Cast<UAPAnimInstance>(GetMesh()->GetAnimInstance());
+	check(AnimInstance);
 
 	CurrentZoomDuration += FApp::GetDeltaTime();
-	UE_LOG(LogTemp, Log, TEXT("%f"), CurrentZoomDuration);
-	if (CurrentZoomDuration >= 1.1f)
+	if (CurrentZoomDuration >= 0.5f)
 	{
-		CurrentZoomDuration = 0;
 		bIsZoomIn = true;
 
-		UAPAnimInstance* AnimInstance = Cast<UAPAnimInstance>(GetMesh()->GetAnimInstance());
-		check(AnimInstance);
-		AnimInstance->Montage_Pause(RightMouseButtonActionMontageManager[EWeaponType::Blade]);
-		UE_LOG(LogTemp, Log, TEXT("Montage Pause"));
+		switch (CurrentWeaponType)
+		{
+		case EWeaponType::Blade:
+			ShieldCollisionOn();
+			break;
 
+		case EWeaponType::Spear:
+			AnimInstance->Montage_Pause(JavelinMontage);
+			break;
+
+		case EWeaponType::Bow:
+			break;
+
+		default:
+			break;
+		}
+
+		GetWorldTimerManager().ClearTimer(RightMouseButtonActionTimerHandle);
 		return;
 	}
 
-	FollowCamera->SetRelativeLocation(FMath::Lerp(FollowCamera->GetRelativeLocation(), CameraZoomInPos, CurrentZoomDuration / 1.1f));
+	FollowCamera->SetRelativeLocation(FMath::Lerp(FollowCamera->GetRelativeLocation(), CameraZoomInPos, CurrentZoomDuration / 0.5f));
+}
 
-	GetWorld()->GetTimerManager().SetTimer(RightMouseButtonActionTimerHandle, this, &AAPCharacterPlayer::ZoomIn, FApp::GetDeltaTime(), false);
+void AAPCharacterPlayer::StartZoomOut()
+{
+	bIsInRightMouseButtonAction = false;
+
+	CurrentZoomDuration = 0;
+	GetWorldTimerManager().ClearTimer(RightMouseButtonActionTimerHandle);
+	GetWorld()->GetTimerManager().SetTimer(RightMouseButtonActionTimerHandle, this, &AAPCharacterPlayer::ZoomOut, FApp::GetDeltaTime(), true);
 }
 
 void AAPCharacterPlayer::ZoomOut()
 {
-	if (bIsInRightMouseButtonAction)
-	{
-		return;
-	}
+	UAPAnimInstance* AnimInstance = Cast<UAPAnimInstance>(GetMesh()->GetAnimInstance());
+	check(AnimInstance);
 
 	CurrentZoomDuration += FApp::GetDeltaTime();
 	if (CurrentZoomDuration >= 0.3f)
 	{
-		CurrentZoomDuration = 0;
 		bIsZoomIn = false;
-		bIsInRightMouseButtonAction = false;
 
-		UAPAnimInstance* AnimInstance = Cast<UAPAnimInstance>(GetMesh()->GetAnimInstance());
-		check(AnimInstance);
+		InitSpeed();
+
 		AnimInstance->StopAllMontages(0);
 
+		GetWorldTimerManager().ClearTimer(RightMouseButtonActionTimerHandle);
 		return;
 	}
 
 	FollowCamera->SetRelativeLocation(FMath::Lerp(FollowCamera->GetRelativeLocation(), CameraInitPos, CurrentZoomDuration / 0.3f));
-
-	GetWorld()->GetTimerManager().SetTimer(RightMouseButtonActionTimerHandle, this, &AAPCharacterPlayer::ZoomOut, FApp::GetDeltaTime(), false);
 }

@@ -18,11 +18,14 @@ public:
 	AAPCharacterNonPlayer();
 
 protected:
-	//virtual void PostInitializeComponents() override;
+	virtual void PostInitializeComponents() override;
 
 protected:
 	//void SetDead() override;
 	//void NPCMeshLoadCompleted();
 
 	//TSharedPtr<FStreamableHandle> NPCMeshHandle;
+	void AIAttack();
+
+	FTimerHandle AttackHandle;
 };
