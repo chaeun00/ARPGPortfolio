@@ -5,21 +5,21 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "Interface/APProjectileInterface.h"
-#include "APJavelin.generated.h"
+#include "APArrow.generated.h"
 
 UCLASS()
-class ARPGPORTFOLIO_API AAPJavelin : public AActor, public IAPProjectileInterface
+class ARPGPORTFOLIO_API AAPArrow : public AActor, public IAPProjectileInterface
 {
 	GENERATED_BODY()
 	
 public:	
-	AAPJavelin();
+	AAPArrow();
 
 	virtual void Tick(float DeltaTime) override;
 
 protected:
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Javelin)
-	TObjectPtr<class UStaticMeshComponent> JavelinMesh;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Arrow)
+	TObjectPtr<class UStaticMeshComponent> ArrowMesh;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = FX)
 	TObjectPtr<class UNiagaraComponent> TrailFX;
@@ -29,6 +29,8 @@ protected:
 
 	virtual void CollisionTrace() override;
 	virtual void EndHitFX() override;
+
+	bool isPaused;
 
 public:
 	virtual void OnReleased(FVector InStartLocation, FVector InForwardVector) override;

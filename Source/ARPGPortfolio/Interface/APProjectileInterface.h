@@ -22,4 +22,8 @@ class ARPGPORTFOLIO_API IAPProjectileInterface
 
 public:
 	virtual void OnReleased(FVector InStartLocation, FVector InForwardVector) = 0;
+
+protected:
+	virtual void CollisionTrace() = 0;
+	virtual void EndHitFX() = 0;
 };

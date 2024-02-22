@@ -99,6 +99,10 @@ protected:
 	uint32 OverlappingEnemiesCount;
 
 	virtual void EquipWeapon(EWeaponType InWeaponType);
+	void SetWeapon(class UAPWeaponItemData* WeaponData);
+	void UnSetWeapon();
+	void SetShield(class UAPWeaponItemData* ShieldData);
+	void UnSetShield();
 	virtual void WeaponCollisionOn() override;
 	virtual void WeaponCollisionOff() override;
 
@@ -128,6 +132,18 @@ protected:
 	virtual void ShieldParryMontageOff() override;
 	virtual void ShieldParryTimingOn() override;
 	virtual void ShieldParryTimingOff() override;
+
+// Bow Section
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Animation)
+	TObjectPtr<class UAnimMontage> DrawArrowMontage;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Animation)
+	TObjectPtr<class UAnimMontage> AimIdleMontage;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Animation)
+	TObjectPtr<class UAnimMontage> RecoilMontage;
+
+	FTimerHandle JumpArrowShotTimerHandle;
 
 // Combo Action Section
 protected:

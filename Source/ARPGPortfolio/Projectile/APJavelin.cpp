@@ -82,6 +82,12 @@ void AAPJavelin::CollisionTrace()
 			{
 				UE_LOG(LogTemp, Log, TEXT("Enemy!"));
 				HitFX->Activate(); // 추후 이펙트 풀로 옮겨라
+				/* 이펙트가 활성화되면 실행되야하는 코드 (HitStop & CameraShake)
+				GetWorldSettings()->SetTimeDilation(0.1f);
+				GetWorld()->GetFirstPlayerController()->PlayerCameraManager->PlayWorldCameraShake(GetWorld(), AttackHitCameraShake, GetActorLocation(), 0, 500, 1);
+				GetWorldSettings()->SetTimeDilation(1);
+				GetWorld()->GetFirstPlayerController()->PlayerCameraManager->StopAllCameraShakes();
+				*/
 				Destroy();
 			}
 			else

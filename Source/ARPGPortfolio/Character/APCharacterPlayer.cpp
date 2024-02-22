@@ -17,6 +17,7 @@
 #include "NiagaraComponent.h"
 #include "Interface/APGameInterface.h"
 #include "Projectile/APJavelin.h"
+#include "Projectile/APArrow.h"
 #include "CharacterStat/APCharacterStatComponent.h"
 
 DEFINE_LOG_CATEGORY(LogAPCharacterPlayer)
@@ -62,6 +63,16 @@ AAPCharacterPlayer::AAPCharacterPlayer()
 	else
 	{
 		UE_LOG(LogAPCharacterPlayer, Log, TEXT("InputActionEquipSpear is NULL"));
+	}
+
+	static ConstructorHelpers::FObjectFinder<UInputAction> InputActionEquipBowRef(TEXT("/Script/EnhancedInput.InputAction'/Game/ARPGPortfolio/Input/Actions/IA_EquipWeapon_Bow.IA_EquipWeapon_Bow'"));
+	if (nullptr != InputActionEquipBowRef.Object)
+	{
+		EquipBowAction = InputActionEquipBowRef.Object;
+	}
+	else
+	{
+		UE_LOG(LogAPCharacterPlayer, Log, TEXT("InputActionEquipBow is NULL"));
 	}
 
 	static ConstructorHelpers::FObjectFinder<UInputAction> InputActionTargetLockRef(TEXT("/Script/EnhancedInput.InputAction'/Game/ARPGPortfolio/Input/Actions/IA_TargetLock.IA_TargetLock'"));
@@ -379,6 +390,7 @@ void AAPCharacterPlayer::SetupPlayerInputComponent(class UInputComponent* Player
 	EnhancedInputComponent->BindAction(ParasailAction, ETriggerEvent::Completed, this, &AAPCharacterPlayer::EndParasail);
 	EnhancedInputComponent->BindAction(EquipBladeAction, ETriggerEvent::Triggered, this, &AAPCharacterPlayer::EquipWeapon, EWeaponType::Blade);
 	EnhancedInputComponent->BindAction(EquipSpearAction, ETriggerEvent::Triggered, this, &AAPCharacterPlayer::EquipWeapon, EWeaponType::Spear);
+	EnhancedInputComponent->BindAction(EquipBowAction, ETriggerEvent::Triggered, this, &AAPCharacterPlayer::EquipWeapon, EWeaponType::Bow);
 	EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Triggered, this, &AAPCharacterPlayer::PressLeftMouseButton);
 	EnhancedInputComponent->BindAction(ChargeAction, ETriggerEvent::Completed, this, &AAPCharacterPlayer::ReleaseLeftMouseButton);
 	EnhancedInputComponent->BindAction(RightMouseButtonAction, ETriggerEvent::Triggered, this, &AAPCharacterPlayer::PressRightMouseButton);
@@ -640,7 +652,8 @@ void AAPCharacterPlayer::ReleaseCommandTimerHandles()
 
 void AAPCharacterPlayer::PressLeftMouseButton()
 {
-	if (bIsExhausted || bIsDodging || bIsParasailing || bIsJumpAttacking || bIsChargeReady || bIsChargeComplete)
+	if (bIsExhausted || bIsDodging || bIsParasailing || bIsJumpAttacking || bIsChargeReady || bIsChargeComplete
+		|| CurrentWeaponType == EWeaponType::Bow)
 	{
 		return;
 	}
@@ -666,6 +679,11 @@ void AAPCharacterPlayer::PressLeftMouseButton()
 
 void AAPCharacterPlayer::ReleaseLeftMouseButton()
 {
+	if (CurrentWeaponType == EWeaponType::Bow)
+	{
+		return;
+	}
+
 	bIsChargeReady = false;
 	InitSpeed();
 
@@ -943,8 +961,31 @@ void AAPCharacterPlayer::EndExhausted()
 
 void AAPCharacterPlayer::PressRightMouseButton()
 {
+	if (bIsExhausted)
+	{
+		return;
+	}
+
 	if (!bIsInRightMouseButtonAction)
 	{
+		if (GetCharacterMovement()->IsFalling())
+		{
+			switch (CurrentWeaponType)
+			{
+			case EWeaponType::Blade:
+			case EWeaponType::Spear:
+				return;
+
+			case EWeaponType::Bow:
+				GetWorldSettings()->SetTimeDilation(0.3f);
+				GetWorld()->GetTimerManager().SetTimer(JumpArrowShotTimerHandle, this, &AAPCharacterPlayer::JumpArrowShotProcess, FApp::GetDeltaTime(), true);
+				break;
+
+			default:
+				break;
+			}
+		}
+
 		bIsInRightMouseButtonAction = true;
 
 		InitSpeed();
@@ -966,6 +1007,7 @@ void AAPCharacterPlayer::PressRightMouseButton()
 			break;
 
 		case EWeaponType::Bow:
+			AnimInstance->Montage_Play(DrawArrowMontage);
 			break;
 
 		default:
@@ -980,6 +1022,11 @@ void AAPCharacterPlayer::PressRightMouseButton()
 
 void AAPCharacterPlayer::ReleaseRightMouseButton()
 {
+	if (bIsExhausted)
+	{
+		return;
+	}
+
 	UAPAnimInstance* AnimInstance = Cast<UAPAnimInstance>(GetMesh()->GetAnimInstance());
 	check(AnimInstance);
 
@@ -1001,7 +1048,6 @@ void AAPCharacterPlayer::ReleaseRightMouseButton()
 			AnimInstance->Montage_JumpToSection(TEXT("Throw"), JavelinMontage);
 			
 			Weapon->SetSkeletalMesh(nullptr);
-			Stat->ApplyUsedStemina(30);
 
 			AActor* Javelin = GetWorld()->SpawnActor(AAPJavelin::StaticClass());
 			CastChecked<AAPJavelin>(Javelin)->OnReleased(GetMesh()->GetSocketLocation(TEXT("hand_rSocket")), UKismetMathLibrary::GetForwardVector(GetControlRotation()));
@@ -1011,6 +1057,19 @@ void AAPCharacterPlayer::ReleaseRightMouseButton()
 		break;
 
 	case EWeaponType::Bow:
+		if (bIsZoomIn)
+		{
+			AnimInstance->Montage_Play(RecoilMontage);
+
+			AActor* Arrow = GetWorld()->SpawnActor(AAPArrow::StaticClass());
+			CastChecked<AAPArrow>(Arrow)->OnReleased(GetMesh()->GetSocketLocation(TEXT("hand_rSocket")), UKismetMathLibrary::GetForwardVector(GetControlRotation()));
+		}
+		else
+		{
+			AnimInstance->StopAllMontages(0);
+		}
+
+		StartZoomOut();
 		break;
 	}
 }
@@ -1036,6 +1095,7 @@ void AAPCharacterPlayer::ZoomIn()
 			break;
 
 		case EWeaponType::Bow:
+			AnimInstance->Montage_Play(AimIdleMontage);
 			break;
 
 		default:
@@ -1052,6 +1112,10 @@ void AAPCharacterPlayer::ZoomIn()
 void AAPCharacterPlayer::StartZoomOut()
 {
 	bIsInRightMouseButtonAction = false;
+
+	// If IsJumpingArrowShot
+	GetWorldSettings()->SetTimeDilation(1);
+	GetWorldTimerManager().ClearTimer(JumpArrowShotTimerHandle);
 
 	CurrentZoomDuration = 0;
 	GetWorldTimerManager().ClearTimer(RightMouseButtonActionTimerHandle);
@@ -1077,4 +1141,18 @@ void AAPCharacterPlayer::ZoomOut()
 	}
 
 	FollowCamera->SetRelativeLocation(FMath::Lerp(FollowCamera->GetRelativeLocation(), CameraInitPos, CurrentZoomDuration / 0.3f));
+}
+
+void AAPCharacterPlayer::JumpArrowShotProcess()
+{
+	Stat->ApplyUsedStemina(FApp::GetDeltaTime() * 50);
+	if (Stat->GetCurrentStemina() <= 0 || !GetCharacterMovement()->IsFalling())
+	{
+		UAPAnimInstance* AnimInstance = Cast<UAPAnimInstance>(GetMesh()->GetAnimInstance());
+		check(AnimInstance);
+		AnimInstance->StopAllMontages(0);
+
+		StartZoomOut();
+	}
+	
 }

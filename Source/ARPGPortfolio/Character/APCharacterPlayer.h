@@ -110,6 +110,9 @@ protected:
 	TObjectPtr<class UInputAction> EquipSpearAction;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, Meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<class UInputAction> EquipBowAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, Meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<class UInputAction> AttackAction;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, Meta = (AllowPrivateAccess = "true"))
@@ -250,4 +253,8 @@ protected:
 
 	FTimerHandle RightMouseButtonActionTimerHandle;
 	float CurrentZoomDuration;
+
+// Bow Section
+protected:
+	void JumpArrowShotProcess();
 };

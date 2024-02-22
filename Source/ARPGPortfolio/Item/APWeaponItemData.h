@@ -31,6 +31,9 @@ public:
 	TSoftObjectPtr<USkeletalMesh> WeaponMesh;
 
 	UPROPERTY(EditAnywhere, Category = Weapon)
+	FVector WeaponMeshEulerRotation;
+
+	UPROPERTY(EditAnywhere, Category = Weapon)
 	FVector WeaponMeshScale;
 
 	UPROPERTY(EditAnywhere, Category = Weapon)
@@ -41,6 +44,15 @@ public:
 
 	UPROPERTY(EditAnywhere, Category = Shield)
 	TSoftObjectPtr<UStaticMesh> ShieldMesh;
+
+	UPROPERTY(EditAnywhere, Category = Shield)
+	FVector ShieldMeshPosition;
+
+	UPROPERTY(EditAnywhere, Category = Shield)
+	FVector ShieldMeshEulerRotation;
+
+	UPROPERTY(EditAnywhere, Category = Shield)
+	FVector ShieldMeshScale;
 
 	UPROPERTY(EditAnywhere, Category = Shield)
 	FVector ShieldColliderPosition;

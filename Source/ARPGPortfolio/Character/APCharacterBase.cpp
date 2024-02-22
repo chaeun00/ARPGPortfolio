@@ -14,7 +14,7 @@
 #include "Animation/AnimMontage.h"
 #include "Item/APItems.h"
 #include "Physics/APCollision.h"
-#include "Engine/AssetManager.h" // TestCode
+#include "Engine/AssetManager.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "Kismet/GameplayStatics.h"
 
@@ -125,6 +125,26 @@ AAPCharacterBase::AAPCharacterBase()
 	{
 		ShieldParryMontage = ShieldParryMontageRef.Object;
 	}
+
+	// Bow Section
+	static ConstructorHelpers::FObjectFinder<UAnimMontage> DrawArrowMontageRef(TEXT("/Script/Engine.AnimMontage'/Game/ARPGPortfolio/Animation/AM_StandingDrawArrow.AM_StandingDrawArrow'"));
+	if (DrawArrowMontageRef.Object)
+	{
+		DrawArrowMontage = DrawArrowMontageRef.Object;
+	}
+
+	static ConstructorHelpers::FObjectFinder<UAnimMontage> AimIdleMontageRef(TEXT("/Script/Engine.AnimMontage'/Game/ARPGPortfolio/Animation/AM_StandingAimIdle.AM_StandingAimIdle'"));
+	if (AimIdleMontageRef.Object)
+	{
+		AimIdleMontage = AimIdleMontageRef.Object;
+	}
+
+	static ConstructorHelpers::FObjectFinder<UAnimMontage> RecoilMontageRef(TEXT("/Script/Engine.AnimMontage'/Game/ARPGPortfolio/Animation/AM_StandingAimRecoil.AM_StandingAimRecoil'"));
+	if (RecoilMontageRef.Object)
+	{
+		RecoilMontage = RecoilMontageRef.Object;
+	}
+	
 
 	// ComboAttack Section
 	static ConstructorHelpers::FObjectFinder<UAnimMontage> BladeComboActionMontageRef(TEXT("/Script/Engine.AnimMontage'/Game/ARPGPortfolio/Animation/AM_ComboAttack_Blade.AM_ComboAttack_Blade'"));
@@ -368,43 +388,29 @@ void AAPCharacterBase::EquipWeapon(EWeaponType InWeaponType)
 	UAPWeaponItemData* WeaponItemData = Cast<UAPWeaponItemData>(Cast<UAPItemData>(AssetPtr.Get()));
 	if (WeaponItemData)
 	{
-		if (WeaponItemData->WeaponMesh.IsPending())
-		{
-			WeaponItemData->WeaponMesh.LoadSynchronous();
-		}
-		Weapon->SetSkeletalMesh(WeaponItemData->WeaponMesh.Get());
-		Weapon->SetRelativeScale3D(WeaponItemData->WeaponMeshScale);
-
 		Stat->SetModifierStat(WeaponItemData->ModifierStat);
-
-		BoxCollider->SetRelativeLocation(WeaponItemData->ColliderPosition);
-		BoxCollider->SetRelativeScale3D(WeaponItemData->ColliderScale);
 
 		switch (InWeaponType)
 		{
 		case EWeaponType::Blade:
-			if (WeaponItemData->ShieldMesh.IsPending())
-			{
-				WeaponItemData->ShieldMesh.LoadSynchronous();
-			}
-			Shield->SetStaticMesh(WeaponItemData->ShieldMesh.Get());
-
-			ShieldCollider->SetRelativeLocation(WeaponItemData->ShieldColliderPosition);
-			ShieldCollider->SetRelativeScale3D(WeaponItemData->ShieldColliderScale);
+			SetWeapon(WeaponItemData);
+			SetShield(WeaponItemData);
 			ShieldCollisionOff();
 
 			CurrentWeaponType = EWeaponType::Blade;
 			break;
 
 		case EWeaponType::Spear:
-			Shield->SetStaticMesh(nullptr);
+			SetWeapon(WeaponItemData);
+			UnSetShield();
 			ShieldCollisionOff();
 
 			CurrentWeaponType = EWeaponType::Spear;
 			break;
 
 		case EWeaponType::Bow:
-			Shield->SetStaticMesh(nullptr);
+			UnSetWeapon();
+			SetShield(WeaponItemData);
 			ShieldCollisionOff();
 
 			CurrentWeaponType = EWeaponType::Bow;
@@ -414,6 +420,45 @@ void AAPCharacterBase::EquipWeapon(EWeaponType InWeaponType)
 			break;
 		}
 	}
+}
+
+void AAPCharacterBase::SetWeapon(UAPWeaponItemData* WeaponData)
+{
+	if (WeaponData->WeaponMesh.IsPending())
+	{
+		WeaponData->WeaponMesh.LoadSynchronous();
+	}
+	Weapon->SetSkeletalMesh(WeaponData->WeaponMesh.Get());
+	Weapon->SetRelativeRotation(FRotator::MakeFromEuler(WeaponData->WeaponMeshEulerRotation));
+	Weapon->SetRelativeScale3D(WeaponData->WeaponMeshScale);
+
+	BoxCollider->SetRelativeLocation(WeaponData->ColliderPosition);
+	BoxCollider->SetRelativeScale3D(WeaponData->ColliderScale);
+}
+
+void AAPCharacterBase::UnSetWeapon()
+{
+	Weapon->SetSkeletalMesh(nullptr);
+}
+
+void AAPCharacterBase::SetShield(UAPWeaponItemData* ShieldData)
+{
+	if (ShieldData->ShieldMesh.IsPending())
+	{
+		ShieldData->ShieldMesh.LoadSynchronous();
+	}
+	Shield->SetStaticMesh(ShieldData->ShieldMesh.Get());
+	Shield->SetRelativeLocation(ShieldData->ShieldMeshPosition);
+	Shield->SetRelativeRotation(FRotator::MakeFromEuler(ShieldData->ShieldMeshEulerRotation));
+	Shield->SetRelativeScale3D(ShieldData->ShieldMeshScale);
+
+	ShieldCollider->SetRelativeLocation(ShieldData->ShieldColliderPosition);
+	ShieldCollider->SetRelativeScale3D(ShieldData->ShieldColliderScale);
+}
+
+void AAPCharacterBase::UnSetShield()
+{
+	Shield->SetStaticMesh(nullptr);
 }
 
 void AAPCharacterBase::WeaponCollisionOn()
