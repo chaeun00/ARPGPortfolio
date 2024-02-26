@@ -28,4 +28,8 @@ protected:
 	void AIAttack();
 
 	FTimerHandle AttackHandle;
+
+// UI Widget Section
+protected:
+	virtual void SetupCharacterWidget(class UAPUserWidget* InUserWidget) override;
 };

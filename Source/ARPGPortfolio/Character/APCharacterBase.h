@@ -10,6 +10,7 @@
 #include "Interface/APChargeAttackInterface.h"
 #include "Interface/APShieldParryInterface.h"
 #include "Interface/APParryAttackEndInterface.h"
+#include "Interface/APCharacterWidgetInterface.h"
 #include "APCharacterBase.generated.h"
 
 #define	GRAVITYSCALE_DEFAULT		1.6f
@@ -31,7 +32,7 @@ enum class ECharacterControlType : uint8
 };
 
 UCLASS()
-class ARPGPORTFOLIO_API AAPCharacterBase : public ACharacter, public IAPAnimationAttackInterface, public IAPJumpAttackInterface, public IAPChargeAttackInterface, public IAPShieldParryInterface, public IAPParryAttackEndInterface
+class ARPGPORTFOLIO_API AAPCharacterBase : public ACharacter, public IAPAnimationAttackInterface, public IAPJumpAttackInterface, public IAPChargeAttackInterface, public IAPShieldParryInterface, public IAPParryAttackEndInterface, public IAPCharacterWidgetInterface
 {
 	GENERATED_BODY()
 
@@ -244,4 +245,17 @@ protected:
 	virtual void JumpAttackCollisionOff() override;
 
 	FTimerHandle JumpAttackTimerHandle;
+
+// UI Widget Section
+protected:
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Widget, Meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<class UWidgetComponent> HpBar;
+
+	virtual void SetupCharacterWidget(class UAPUserWidget* InUserWidget) override;
+
+public:
+	virtual void ShowHpBar();
+	virtual void HideHpBar();
+
+	FTimerHandle HpBarVisibilityTimerHandle;
 };

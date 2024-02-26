@@ -17,6 +17,8 @@
 #include "Engine/AssetManager.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "Kismet/GameplayStatics.h"
+#include "UI/APWidgetComponent.h"
+#include "UI/APHpBarWidget.h"
 
 DEFINE_LOG_CATEGORY(LogAPCharacterBase)
 
@@ -310,6 +312,11 @@ void AAPCharacterBase::SetDead()
 	GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_None);
 	PlayDeadAnimation();
 	SetActorEnableCollision(false);
+
+	if (nullptr != HpBar)
+	{
+		HpBar->SetHiddenInGame(true);
+	}
 }
 
 void AAPCharacterBase::PlayDeadAnimation()
@@ -855,4 +862,26 @@ void AAPCharacterBase::JumpAttackCollisionOff()
 	SphereCollider->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
 	bIsJumpAttacking = false;
+}
+
+void AAPCharacterBase::SetupCharacterWidget(UAPUserWidget* InUserWidget)
+{
+	UAPHpBarWidget* HpBarWidget = Cast<UAPHpBarWidget>(InUserWidget);
+	if (HpBarWidget)
+	{
+		HpBarWidget->UpdateStat(Stat->GetBaseStat(), Stat->GetModifierStat());
+		HpBarWidget->UpdateHpBar(Stat->GetCurrentHp());
+		Stat->OnHpChanged.AddUObject(HpBarWidget, &UAPHpBarWidget::UpdateHpBar);
+		Stat->OnStatChanged.AddUObject(HpBarWidget, &UAPHpBarWidget::UpdateStat);
+	}
+}
+
+void AAPCharacterBase::ShowHpBar()
+{
+	HpBar->SetVisibility(true);
+}
+
+void AAPCharacterBase::HideHpBar()
+{
+	HpBar->SetVisibility(false);
 }

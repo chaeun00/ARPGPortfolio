@@ -14,6 +14,7 @@
 #include "Kismet/KismetSystemLibrary.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "Components/CapsuleComponent.h"
+#include "Components/BoxComponent.h"
 #include "NiagaraComponent.h"
 #include "Interface/APGameInterface.h"
 #include "Projectile/APJavelin.h"
@@ -29,7 +30,7 @@ AAPCharacterPlayer::AAPCharacterPlayer()
 	Tags.Add(TEXT("Player"));
 
 	// Camera Section
-	CameraInitPos = FVector(0, 0, 150);
+	CameraInitPos = FVector(0, 100, 150);
 	CameraZoomInPos = FVector(200, 50, 150);
 
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
@@ -350,7 +351,8 @@ void AAPCharacterPlayer::Tick(float DeltaTime)
 		}
 	}
 
-	MantleTrace();
+	//MantleTrace();
+	NPCHpBarTrace();
 	RecoveryStemina();
 }
 
@@ -1185,5 +1187,34 @@ void AAPCharacterPlayer::JumpArrowShotProcess()
 		AnimInstance->StopAllMontages(0);
 
 		StartZoomOut();
+	}
+}
+
+void AAPCharacterPlayer::NPCHpBarTrace()
+{
+	FVector Start = GetActorLocation();
+	FVector End = Start + UKismetMathLibrary::GetForwardVector(GetControlRotation()) * 1000;
+
+	TArray<TEnumAsByte<EObjectTypeQuery>> ObjectTypesArray;
+	ObjectTypesArray.Add(UEngineTypes::ConvertToObjectType(ECollisionChannel::ECC_Pawn));
+	TArray<AActor*> ActorsToIgnore;
+	ActorsToIgnore.Add(this);
+	TArray<FHitResult> HitResults;
+
+	if (UKismetSystemLibrary::SphereTraceMultiForObjects(GetWorld(), Start, End, 200.f, ObjectTypesArray, false, ActorsToIgnore, EDrawDebugTrace::ForOneFrame, HitResults, true))
+	{
+		for (auto HitResult : HitResults)
+		{
+			if (HitResult.GetActor()->ActorHasTag(TEXT("Enemy")))
+			{
+				AAPCharacterBase* NPC = Cast<AAPCharacterBase>(HitResult.GetActor());
+				if (NPC)
+				{
+					NPC->ShowHpBar();
+					GetWorld()->GetTimerManager().ClearTimer(NPC->HpBarVisibilityTimerHandle);
+					GetWorld()->GetTimerManager().SetTimer(NPC->HpBarVisibilityTimerHandle, NPC, &AAPCharacterBase::HideHpBar, 2, false);
+				}
+			}
+		}
 	}
 }

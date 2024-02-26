@@ -265,4 +265,6 @@ protected:
 
 	void JumpArrowShotProcess();
 
+// UI Section
+	void NPCHpBarTrace();
 };
