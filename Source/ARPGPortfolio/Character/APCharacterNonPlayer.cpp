@@ -2,14 +2,20 @@
 
 
 #include "Character/APCharacterNonPlayer.h"
+#include "CharacterStat/APCharacterStatComponent.h"
 #include "UI/APWidgetComponent.h"
 #include "UI/APHpBarWidget.h"
+#include "AI/APAIController.h"
 
 AAPCharacterNonPlayer::AAPCharacterNonPlayer()
 {
 	Tags.Add(TEXT("Enemy"));
 
-	// Widget Section
+	// AI Section
+	AIControllerClass = AAPAIController::StaticClass();
+	AutoPossessAI = EAutoPossessAI::PlacedInWorldOrSpawned;
+
+	// UI Widget Section
 	HpBar = CreateDefaultSubobject<UAPWidgetComponent>(TEXT("Widget"));
 	HpBar->SetupAttachment(GetMesh());
 	HpBar->SetRelativeLocation(FVector(0.0f, 0.0f, 180.0f));
@@ -27,17 +33,51 @@ AAPCharacterNonPlayer::AAPCharacterNonPlayer()
 void AAPCharacterNonPlayer::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
-
-	EquipWeapon(EWeaponType::Blade);
-	GetWorld()->GetTimerManager().SetTimer(AttackHandle, this, &AAPCharacterNonPlayer::AIAttack, 3, true);
-}
-
-void AAPCharacterNonPlayer::AIAttack()
-{
-	ProcessComboCommand();
 }
 
 void AAPCharacterNonPlayer::SetupCharacterWidget(UAPUserWidget* InUserWidget)
 {
 	Super::SetupCharacterWidget(InUserWidget);
+}
+
+float AAPCharacterNonPlayer::GetAIPatrolRadius()
+{
+	return 800.0f;
+}
+
+float AAPCharacterNonPlayer::GetAIDetectRange()
+{
+	return 400.0f;
+}
+
+float AAPCharacterNonPlayer::GetAIDoubtRange()
+{
+	return 500.0f;
+}
+
+float AAPCharacterNonPlayer::GetAIAttackRange()
+{
+	return Stat->GetTotalStat().AttackRange + Stat->GetAttackRadius() * 2;
+}
+
+float AAPCharacterNonPlayer::GetAITurnSpeed()
+{
+	return 2.0f;
+}
+
+void AAPCharacterNonPlayer::SetAIAttackDelegate(const FAICharacterAttackFinished& InOnAttackFinished)
+{
+	OnAttackFinished = InOnAttackFinished;
+}
+
+void AAPCharacterNonPlayer::AttackByAI()
+{
+	ProcessComboCommand();
+}
+
+void AAPCharacterNonPlayer::NotifyComboActionEnd()
+{
+	Super::NotifyComboActionEnd();
+
+	OnAttackFinished.ExecuteIfBound();
 }

@@ -20,6 +20,7 @@
 #include "Projectile/APJavelin.h"
 #include "Projectile/APArrow.h"
 #include "CharacterStat/APCharacterStatComponent.h"
+#include "Character/APCharacterNonPlayer.h"
 
 DEFINE_LOG_CATEGORY(LogAPCharacterPlayer)
 
@@ -370,6 +371,11 @@ void AAPCharacterPlayer::BeginPlay()
 
 	SetCharacterControl(CurrentCharacterControlType);
 	EquipWeapon(EWeaponType::Blade);
+
+
+	// Spawn AI Enemy Test Code
+	const FTransform SpawnTransform(FVector(1000, 100, 100));
+	AAPCharacterNonPlayer* APOpponentCharacter = GetWorld()->SpawnActor<AAPCharacterNonPlayer>(AAPCharacterNonPlayer::StaticClass(), SpawnTransform);
 }
 
 void AAPCharacterPlayer::SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent)

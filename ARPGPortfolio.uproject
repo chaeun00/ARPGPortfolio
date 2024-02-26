@@ -12,7 +12,8 @@
 				"Engine",
 				"CoreUObject",
 				"GameplayCameras",
-				"UMG"
+				"UMG",
+				"AIModule"
 			]
 		}
 	],
