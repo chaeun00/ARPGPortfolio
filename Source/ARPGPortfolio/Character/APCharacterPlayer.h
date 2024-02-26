@@ -254,7 +254,15 @@ protected:
 	FTimerHandle RightMouseButtonActionTimerHandle;
 	float CurrentZoomDuration;
 
+// Shield Section
+protected:
+	void TakeOffShield();
+
 // Bow Section
 protected:
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Fire)
+	uint8 bIsJumpShooting : 1;
+
 	void JumpArrowShotProcess();
+
 };

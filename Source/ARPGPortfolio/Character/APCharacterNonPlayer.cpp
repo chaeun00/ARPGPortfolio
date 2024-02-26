@@ -13,7 +13,7 @@ void AAPCharacterNonPlayer::PostInitializeComponents()
 	Super::PostInitializeComponents();
 
 	EquipWeapon(EWeaponType::Blade);
-	GetWorld()->GetTimerManager().SetTimer(AttackHandle, this, &AAPCharacterNonPlayer::AIAttack, 2, true);
+	GetWorld()->GetTimerManager().SetTimer(AttackHandle, this, &AAPCharacterNonPlayer::AIAttack, 3, true);
 }
 
 void AAPCharacterNonPlayer::AIAttack()

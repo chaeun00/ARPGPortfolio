@@ -9,6 +9,7 @@
 #include "Interface/APJumpAttackInterface.h"
 #include "Interface/APChargeAttackInterface.h"
 #include "Interface/APShieldParryInterface.h"
+#include "Interface/APParryAttackEndInterface.h"
 #include "APCharacterBase.generated.h"
 
 #define	GRAVITYSCALE_DEFAULT		1.6f
@@ -30,7 +31,7 @@ enum class ECharacterControlType : uint8
 };
 
 UCLASS()
-class ARPGPORTFOLIO_API AAPCharacterBase : public ACharacter, public IAPAnimationAttackInterface, public IAPJumpAttackInterface, public IAPChargeAttackInterface, public IAPShieldParryInterface
+class ARPGPORTFOLIO_API AAPCharacterBase : public ACharacter, public IAPAnimationAttackInterface, public IAPJumpAttackInterface, public IAPChargeAttackInterface, public IAPShieldParryInterface, public IAPParryAttackEndInterface
 {
 	GENERATED_BODY()
 
@@ -118,13 +119,16 @@ protected:
 	TObjectPtr<class UAnimMontage> ShieldHitMontage;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Animation)
+	TObjectPtr<class UAnimMontage> ShieldParryHitMontage;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Animation)
 	TObjectPtr<class UAnimMontage> ShieldParryMontage;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Equipment)
 	uint8 bIsPlayingShieldParry : 1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Equipment)
-	uint8 bIsNiceShieldParryTiming : 1;
+	uint8 bIsNiceParryTiming : 1;
 
 	virtual void ShieldCollisionOn();
 	virtual void ShieldCollisionOff();
@@ -133,7 +137,38 @@ protected:
 	virtual void ShieldParryTimingOn() override;
 	virtual void ShieldParryTimingOff() override;
 
+// Parry Section
+public:
+	FORCEINLINE void SetParryTargetActor(class AActor* InTarget) { ParryTargetActor = InTarget; }
+	FORCEINLINE AActor* GetParryTargetActor() { return ParryTargetActor; }
+	FORCEINLINE void SetHaveToRushToEnemy(uint8 InValue) { bHaveToRushToEnemy = InValue; }
+	FORCEINLINE uint8 GetHaveToRushToEnemy() { return bHaveToRushToEnemy; }
+	FORCEINLINE void SetIsParryAttackable(uint8 InValue) { bIsParryAttackable = InValue; }
+	FORCEINLINE uint8 GetIsParryAttackable() { return bIsParryAttackable; }
+	FORCEINLINE void SetIsParryAttacking(bool InValue) { bIsParryAttacking = InValue; }
+	FORCEINLINE bool GetIsParryAttacking() { return bIsParryAttacking; }
+
+protected:
+	virtual void StartParry(class AActor* InParryActor, class AActor* InTargetActor, float InTimeDilation, bool InIsParryAttackable = true, bool InHaveToRushToEnemy = true);
+	virtual void EndParry(class AActor* InParryActor) override;
+	virtual void ParryAttack();
+	virtual void ProcessParryAttack();
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Animation)
+	TMap<EWeaponType, TObjectPtr<class UAnimMontage>> ParryAttackMontageManager;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Equipment)
+	uint8 bHaveToRushToEnemy : 1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Equipment)
+	uint8 bIsParryAttackable : 1;
+
+	FTimerHandle ParryAttackTimerHandle;
+	AActor* ParryTargetActor;
+	bool bIsParryAttacking;
+
 // Bow Section
+protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Animation)
 	TObjectPtr<class UAnimMontage> DrawArrowMontage;
 

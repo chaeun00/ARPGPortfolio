@@ -120,10 +120,29 @@ AAPCharacterBase::AAPCharacterBase()
 		ShieldHitMontage = ShieldHitMontageRef.Object;
 	}
 
+	static ConstructorHelpers::FObjectFinder<UAnimMontage> ShieldParryHitMontageRef(TEXT("/Script/Engine.AnimMontage'/Game/ARPGPortfolio/Animation/Hit_ShieldParry.Hit_ShieldParry'"));
+	if (ShieldParryHitMontageRef.Object)
+	{
+		ShieldParryHitMontage = ShieldParryHitMontageRef.Object;
+	}
+
 	static ConstructorHelpers::FObjectFinder<UAnimMontage> ShieldParryMontageRef(TEXT("/Script/Engine.AnimMontage'/Game/ARPGPortfolio/Animation/AM_ShieldParry.AM_ShieldParry'"));
 	if (ShieldParryMontageRef.Object)
 	{
 		ShieldParryMontage = ShieldParryMontageRef.Object;
+	}
+
+	// Parry Section
+	static ConstructorHelpers::FObjectFinder<UAnimMontage> BladeParryAttackMontageRef(TEXT("/Script/Engine.AnimMontage'/Game/ARPGPortfolio/Animation/AM_ParryAttack_Blade.AM_ParryAttack_Blade'"));
+	if (BladeParryAttackMontageRef.Object)
+	{
+		ParryAttackMontageManager.Add(EWeaponType::Blade, BladeParryAttackMontageRef.Object);
+	}
+
+	static ConstructorHelpers::FObjectFinder<UAnimMontage> SpearParryAttackMontageRef(TEXT("/Script/Engine.AnimMontage'/Game/ARPGPortfolio/Animation/AM_ParryAttack_Spear.AM_ParryAttack_Spear'"));
+	if (SpearParryAttackMontageRef.Object)
+	{
+		ParryAttackMontageManager.Add(EWeaponType::Spear, SpearParryAttackMontageRef.Object);
 	}
 
 	// Bow Section
@@ -278,7 +297,7 @@ float AAPCharacterBase::TakeDamage(float DamageAmount, FDamageEvent const& Damag
 void AAPCharacterBase::OnInvincible()
 {
 	bIsInvincible = true;
-	GetWorld()->GetTimerManager().SetTimer(ComboTimerHandle, this, &AAPCharacterBase::OffInvincible, 0.5f, false);
+	//GetWorld()->GetTimerManager().SetTimer(ComboTimerHandle, this, &AAPCharacterBase::OffInvincible, 0.5f, false);
 }
 
 void AAPCharacterBase::OffInvincible()
@@ -309,15 +328,21 @@ void AAPCharacterBase::PlayDeadAnimation()
 
 void AAPCharacterBase::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
+	UAnimInstance* OtherActorAnimInstance = CastChecked<AAPCharacterBase>(OtherActor)->GetMesh()->GetAnimInstance();
+	UAnimInstance* ThisActorAnimInstance = GetMesh()->GetAnimInstance();
+
 	if (OtherActor && this != CastChecked<AAPCharacterBase>(OtherActor) && !CastChecked<AAPCharacterBase>(OtherActor)->bIsInvincible)
 	{
-		if ((OtherActor->Tags.Find(TEXT("Enemy")) != INDEX_NONE))
+		if ((OtherActor->Tags.Find(TEXT("Enemy")) != INDEX_NONE) && (!OverlappedComp->ComponentHasTag(TEXT("Shield"))))
 		{
 			OverlappingEnemiesCount++;
 
-			GetWorldSettings()->SetTimeDilation(0.1f);
+			GetWorldSettings()->SetTimeDilation(0.3f);
 			GetWorld()->GetFirstPlayerController()->PlayerCameraManager->PlayWorldCameraShake(GetWorld(), AttackHitCameraShake, GetActorLocation(), 0, 500, 1);
-			CastChecked<ACharacter>(OtherActor)->LaunchCharacter(UKismetMathLibrary::GetDirectionUnitVector(GetActorLocation(), OtherActor->GetActorLocation()) * ComboActionDataManager[EWeaponType::Blade]->HitKnockBackAmount, false, false);
+			if (!bIsParryAttacking)
+			{
+				CastChecked<ACharacter>(OtherActor)->LaunchCharacter(UKismetMathLibrary::GetDirectionUnitVector(GetActorLocation(), OtherActor->GetActorLocation()) * ComboActionDataManager[CurrentWeaponType]->HitKnockBackAmount, false, false);
+			}
 		}
 		
 		// 적 공격 테스트 코드
@@ -327,38 +352,51 @@ void AAPCharacterBase::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActo
 			{
 				if (CastChecked<AAPCharacterBase>(OtherActor)->bIsPlayingShieldParry)
 				{
-					if (CastChecked<AAPCharacterBase>(OtherActor)->bIsNiceShieldParryTiming)
+					if (CastChecked<AAPCharacterBase>(OtherActor)->bIsNiceParryTiming)
 					{
 						UE_LOG(LogTemp, Log, TEXT("Nice Parry Timing!"));
+						StartParry(OtherActor, this, 0.4f);
+
+						ThisActorAnimInstance->StopAllMontages(0.0f);
+						ThisActorAnimInstance->Montage_Play(ShieldHitMontage, 1.0f);
 					}
 					else
 					{
 						UE_LOG(LogTemp, Log, TEXT("Parry Failed"));
 						CastChecked<AAPCharacterBase>(OtherActor)->ShieldParryMontageOff();
-						UGameplayStatics::ApplyDamage(OtherActor, 4, GetController(), nullptr, NULL);
+						//UGameplayStatics::ApplyDamage(OtherActor, 4, GetController(), nullptr, NULL);
 					}
 				}
 				else
 				{
-					UAnimInstance* AnimInstance = CastChecked<AAPCharacterBase>(OtherActor)->GetMesh()->GetAnimInstance();
-					AnimInstance->StopAllMontages(0.0f);
-					AnimInstance->Montage_Play(ShieldHitMontage, 1.0f);
-					UGameplayStatics::ApplyDamage(OtherActor, 1, GetController(), nullptr, NULL);
+					OtherActorAnimInstance->StopAllMontages(0.0f);
+					OtherActorAnimInstance->Montage_Play(ShieldHitMontage, 1.0f);
+					//UGameplayStatics::ApplyDamage(OtherActor, 1, GetController(), nullptr, NULL);
 				}
 			}
 			else
 			{
-				UGameplayStatics::ApplyDamage(OtherActor, 4, GetController(), nullptr, NULL);
+				if (CastChecked<AAPCharacterBase>(OtherActor)->bIsNiceParryTiming)
+				{
+					UE_LOG(LogTemp, Log, TEXT("Nice Step Timing!"));
+					StartParry(OtherActor, this, 0.4f);
+
+				}
+				else
+				{
+					UE_LOG(LogTemp, Log, TEXT("Step Failed"));
+					//UGameplayStatics::ApplyDamage(OtherActor, 4, GetController(), nullptr, NULL);
+				}
 			}
 
-			CastChecked<AAPCharacterBase>(OtherActor)->OnInvincible();
+			//CastChecked<AAPCharacterBase>(OtherActor)->OnInvincible();
 		}
 	}
 }
 
 void AAPCharacterBase::OnOverlapEnd(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
 {
-	if (OtherActor && (OtherActor->Tags.Find(TEXT("Enemy")) != INDEX_NONE))
+	if (OtherActor && (OtherActor->Tags.Find(TEXT("Enemy")) != INDEX_NONE) && (!OverlappedComp->ComponentHasTag(TEXT("Shield"))))
 	{
 		OverlappingEnemiesCount--;
 		if (OverlappingEnemiesCount == 0)
@@ -492,19 +530,93 @@ void AAPCharacterBase::ShieldParryMontageOn()
 void AAPCharacterBase::ShieldParryMontageOff()
 {
 	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
-	AnimInstance->StopAllMontages(0.0f);
+	if (!bIsParryAttackable)
+	{
+		AnimInstance->StopAllMontages(0.0f);
+	}
 
 	bIsPlayingShieldParry = false;
 }
 
 void AAPCharacterBase::ShieldParryTimingOn()
 {
-	bIsNiceShieldParryTiming = true;
+	bIsNiceParryTiming = true;
 }
 
 void AAPCharacterBase::ShieldParryTimingOff()
 {
-	bIsNiceShieldParryTiming = false;
+	bIsNiceParryTiming = false;
+}
+
+void AAPCharacterBase::StartParry(AActor* InParryActor, AActor* InTargetActor, float InTimeDilation, bool InIsParryAttackable, bool InHaveToRushToEnemy)
+{
+	AAPCharacterBase* ParryActor = CastChecked<AAPCharacterBase>(InParryActor);
+	ParryActor->OnInvincible();
+	ParryActor->SetParryTargetActor(InTargetActor);
+	ParryActor->SetIsParryAttackable(InIsParryAttackable);
+	ParryActor->SetHaveToRushToEnemy(InHaveToRushToEnemy);
+
+	UGameplayStatics::GetPlayerCameraManager(GetWorld(), 0)->StartCameraFade(0, 0.5f, 0.5f, FLinearColor::Black, false, true);
+	GetWorldSettings()->SetTimeDilation(InTimeDilation);
+}
+
+void AAPCharacterBase::EndParry(AActor* InParryActor)
+{
+	if (nullptr != ParryTargetActor || CurrentWeaponType == EWeaponType::Bow)
+	{
+		AAPCharacterBase* ParryActor = CastChecked<AAPCharacterBase>(InParryActor);
+		ParryActor->OffInvincible();
+		ParryActor->SetParryTargetActor(nullptr);
+		ParryActor->SetIsParryAttackable(false);
+		ParryActor->SetIsParryAttacking(false);
+		ParryActor->SetHaveToRushToEnemy(false);
+
+		UGameplayStatics::GetPlayerCameraManager(GetWorld(), 0)->StartCameraFade(0.5f, 0, 0.5f, FLinearColor::Black, false, true);
+		GetWorldSettings()->SetTimeDilation(1);
+	}
+}	
+
+void AAPCharacterBase::ParryAttack()
+{
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	check(AnimInstance);
+
+	bIsParryAttackable = false;
+	bIsParryAttacking = true;
+
+	if (bHaveToRushToEnemy && nullptr != ParryTargetActor)
+	{
+		AnimInstance->StopAllMontages(0);
+		LaunchCharacter(UKismetMathLibrary::GetDirectionUnitVector(GetActorLocation(), ParryTargetActor->GetActorLocation()) * ComboActionDataManager[CurrentWeaponType]->HitKnockBackAmount, false, true);
+	}
+
+	GetWorld()->GetTimerManager().ClearTimer(ParryAttackTimerHandle);
+	GetWorld()->GetTimerManager().SetTimer(ParryAttackTimerHandle, this, &AAPCharacterBase::ProcessParryAttack, 0.15f, false);
+}
+
+void AAPCharacterBase::ProcessParryAttack()
+{
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	check(AnimInstance);
+
+	switch (CurrentWeaponType)
+	{
+	case EWeaponType::Blade:
+		AnimInstance->StopAllMontages(0);
+		AnimInstance->Montage_Play(ParryAttackMontageManager[EWeaponType::Blade], 2.5f);
+		break;
+
+	case EWeaponType::Spear:
+		AnimInstance->StopAllMontages(0);
+		AnimInstance->Montage_Play(ParryAttackMontageManager[EWeaponType::Spear], 10);
+		break;
+
+	case EWeaponType::Bow:
+		break;
+
+	default:
+		break;
+	}
 }
 
 void AAPCharacterBase::ProcessComboCommand()
@@ -551,7 +663,7 @@ void AAPCharacterBase::ComboActionBegin()
 
 void AAPCharacterBase::ComboActionEnd(UAnimMontage* TargetMontage, bool IsProperlyEnded)
 {
-	ensure(CurrentCombo != 0);
+	//ensure(CurrentCombo != 0);
 	CurrentCombo = 0;
 
 	NotifyComboActionEnd();

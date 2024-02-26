@@ -652,7 +652,20 @@ void AAPCharacterPlayer::ReleaseCommandTimerHandles()
 
 void AAPCharacterPlayer::PressLeftMouseButton()
 {
+	if (bIsParryAttackable && ParryTargetActor != nullptr && !bIsParryAttacking)
+	{
+		if (CurrentWeaponType == EWeaponType::Blade)
+		{
+			TakeOffShield();
+		}
+		ParryAttack();
+		StopDash();
+
+		return;
+	}
+
 	if (bIsExhausted || bIsDodging || bIsParasailing || bIsJumpAttacking || bIsChargeReady || bIsChargeComplete
+		|| bIsParryAttacking
 		|| CurrentWeaponType == EWeaponType::Bow)
 	{
 		return;
@@ -977,7 +990,7 @@ void AAPCharacterPlayer::PressRightMouseButton()
 				return;
 
 			case EWeaponType::Bow:
-				GetWorldSettings()->SetTimeDilation(0.3f);
+				bIsJumpShooting = true;
 				GetWorld()->GetTimerManager().SetTimer(JumpArrowShotTimerHandle, this, &AAPCharacterPlayer::JumpArrowShotProcess, FApp::GetDeltaTime(), true);
 				break;
 
@@ -1007,6 +1020,11 @@ void AAPCharacterPlayer::PressRightMouseButton()
 			break;
 
 		case EWeaponType::Bow:
+			if (AnimInstance->GetIsFalling())
+			{
+				StartParry(this, nullptr, 0.3f, false, false);
+			}
+
 			AnimInstance->Montage_Play(DrawArrowMontage);
 			break;
 
@@ -1022,7 +1040,7 @@ void AAPCharacterPlayer::PressRightMouseButton()
 
 void AAPCharacterPlayer::ReleaseRightMouseButton()
 {
-	if (bIsExhausted)
+	if (bIsExhausted || bIsParryAttackable || bIsParryAttacking)
 	{
 		return;
 	}
@@ -1033,12 +1051,7 @@ void AAPCharacterPlayer::ReleaseRightMouseButton()
 	switch (CurrentWeaponType)
 	{
 	case EWeaponType::Blade:
-		ShieldCollisionOff();
-
-		AnimInstance->SetIsHoldingShield(false);
-		AnimInstance->StopAllMontages(0);
-		
-		StartZoomOut();
+		TakeOffShield();
 		break;
 
 	case EWeaponType::Spear:
@@ -1113,9 +1126,13 @@ void AAPCharacterPlayer::StartZoomOut()
 {
 	bIsInRightMouseButtonAction = false;
 
-	// If IsJumpingArrowShot
-	GetWorldSettings()->SetTimeDilation(1);
-	GetWorldTimerManager().ClearTimer(JumpArrowShotTimerHandle);
+	if (CurrentWeaponType == EWeaponType::Bow && (GetMovementComponent()->IsFalling() || bIsJumpShooting))
+	{
+		bIsJumpShooting = false;
+
+		EndParry(this);
+		GetWorldTimerManager().ClearTimer(JumpArrowShotTimerHandle);
+	}
 
 	CurrentZoomDuration = 0;
 	GetWorldTimerManager().ClearTimer(RightMouseButtonActionTimerHandle);
@@ -1134,13 +1151,28 @@ void AAPCharacterPlayer::ZoomOut()
 
 		InitSpeed();
 
-		AnimInstance->StopAllMontages(0);
+		if (!bIsParryAttacking)
+		{
+			AnimInstance->StopAllMontages(0);
+		}
 
 		GetWorldTimerManager().ClearTimer(RightMouseButtonActionTimerHandle);
 		return;
 	}
 
 	FollowCamera->SetRelativeLocation(FMath::Lerp(FollowCamera->GetRelativeLocation(), CameraInitPos, CurrentZoomDuration / 0.3f));
+}
+
+void AAPCharacterPlayer::TakeOffShield()
+{
+	ShieldCollisionOff();
+
+	UAPAnimInstance* AnimInstance = Cast<UAPAnimInstance>(GetMesh()->GetAnimInstance());
+	check(AnimInstance);
+	AnimInstance->SetIsHoldingShield(false);
+	AnimInstance->StopAllMontages(0);
+
+	StartZoomOut();
 }
 
 void AAPCharacterPlayer::JumpArrowShotProcess()
@@ -1154,5 +1186,4 @@ void AAPCharacterPlayer::JumpArrowShotProcess()
 
 		StartZoomOut();
 	}
-	
 }
