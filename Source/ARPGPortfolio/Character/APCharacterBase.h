@@ -11,6 +11,7 @@
 #include "Interface/APShieldParryInterface.h"
 #include "Interface/APParryAttackEndInterface.h"
 #include "Interface/APCharacterWidgetInterface.h"
+#include "Interface/APProjectileHitInterface.h"
 #include "APCharacterBase.generated.h"
 
 #define	GRAVITYSCALE_DEFAULT		1.6f
@@ -32,7 +33,9 @@ enum class ECharacterControlType : uint8
 };
 
 UCLASS()
-class ARPGPORTFOLIO_API AAPCharacterBase : public ACharacter, public IAPAnimationAttackInterface, public IAPJumpAttackInterface, public IAPChargeAttackInterface, public IAPShieldParryInterface, public IAPParryAttackEndInterface, public IAPCharacterWidgetInterface
+class ARPGPORTFOLIO_API AAPCharacterBase : public ACharacter,
+	public IAPAnimationAttackInterface, public IAPJumpAttackInterface, public IAPChargeAttackInterface,
+	public IAPShieldParryInterface, public IAPParryAttackEndInterface, public IAPCharacterWidgetInterface, public IAPProjectileHitInterface
 {
 	GENERATED_BODY()
 
@@ -58,7 +61,18 @@ public:
 	void ApplyStat(const FAPCharacterStat& BaseStat, const FAPCharacterStat& ModifierStat);
 
 // Attack Hit Section
+public:
+	virtual void OnPlayerHit() override;
+	virtual void OffPlayerHit() override;
+	virtual void HitProjectile(bool isCritical, int Attack) override;
+
 protected:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Animation)
+	TArray<TObjectPtr<class UAnimMontage>> HitMontageArray;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Animation)
+	TArray<TObjectPtr<class UAnimMontage>> CriticalHitMontageArray;
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Stat)
 	uint8 bIsInvincible : 1;
 
@@ -250,6 +264,9 @@ protected:
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Widget, Meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<class UWidgetComponent> HpBar;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Widget, Meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<class UWidgetComponent> Mark;
 
 	virtual void SetupCharacterWidget(class UAPUserWidget* InUserWidget) override;
 

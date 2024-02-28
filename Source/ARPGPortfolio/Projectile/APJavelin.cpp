@@ -7,6 +7,7 @@
 #include "NiagaraComponent.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Particles/ParticleSystemComponent.h"
+#include "Interface/APProjectileHitInterface.h"
 
 AAPJavelin::AAPJavelin()
 {
@@ -81,6 +82,9 @@ void AAPJavelin::CollisionTrace()
 			if (HitResult.GetActor()->Tags.Find(TEXT("Enemy")) != INDEX_NONE)
 			{
 				UE_LOG(LogTemp, Log, TEXT("Enemy!"));
+
+				CastChecked<IAPProjectileHitInterface>(HitResult.GetActor())->HitProjectile(true, 15);
+
 				HitFX->Activate(); // 추후 이펙트 풀로 옮겨라
 				/* 이펙트가 활성화되면 실행되야하는 코드 (HitStop & CameraShake)
 				GetWorldSettings()->SetTimeDilation(0.1f);
@@ -105,7 +109,7 @@ void AAPJavelin::EndHitFX()
 	Destroy();
 }
 
-void AAPJavelin::OnReleased(FVector InStartLocation, FVector InForwardVector)
+void AAPJavelin::OnReleased(AActor* InAttacker, FVector InStartLocation, FVector InForwardVector, int32 Damage)
 {
 	SetActorLocation(InStartLocation);
 	

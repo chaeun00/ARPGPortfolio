@@ -24,4 +24,7 @@ class ARPGPORTFOLIO_API IAPAnimationAttackInterface
 public:
 	virtual void WeaponCollisionOn() = 0;
 	virtual void WeaponCollisionOff() = 0;
+
+	virtual void OnPlayerHit() = 0;
+	virtual void OffPlayerHit() = 0;
 };

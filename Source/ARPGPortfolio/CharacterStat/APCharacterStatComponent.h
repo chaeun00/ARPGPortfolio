@@ -37,7 +37,7 @@ public:
 	void SetLevelStat(int32 InNewLevel);
 	FORCEINLINE float GetCurrentLevel() const { return CurrentLevel; }
 	FORCEINLINE void AddBaseStat(const FAPCharacterStat& InAddBaseStat) { BaseStat = BaseStat + InAddBaseStat; OnStatChanged.Broadcast(GetBaseStat(), GetModifierStat()); }
-	FORCEINLINE void SetBaseStat(const FAPCharacterStat& InBaseStat) { BaseStat = InBaseStat; OnStatChanged.Broadcast(GetBaseStat(), GetModifierStat()); }
+	FORCEINLINE void SetBaseStat(const FAPCharacterStat& InBaseStat) { BaseStat = InBaseStat; SetHp(InBaseStat.MaxHp); OnStatChanged.Broadcast(GetBaseStat(), GetModifierStat()); }
 	FORCEINLINE void SetModifierStat(const FAPCharacterStat& InModifierStat) { ModifierStat = InModifierStat; OnStatChanged.Broadcast(GetBaseStat(), GetModifierStat()); }
 	
 	FORCEINLINE const FAPCharacterStat& GetBaseStat() const { return BaseStat; }

@@ -24,11 +24,16 @@ public:
 // Character Stat Data Section
 public:
 	FORCEINLINE FAPCharacterStat GetCharacterStat(int32 InLevel) const { return CharacterStatTable.IsValidIndex(InLevel - 1) ? CharacterStatTable[InLevel - 1] : FAPCharacterStat(); }
+	FORCEINLINE FAPCharacterStat GetMonsterStat(int32 InType) const { return MonsterStatTable.IsValidIndex(InType) ? MonsterStatTable[InType] : FAPCharacterStat(); }
 
 	UPROPERTY()
 	int32 CharacterMaxLevel;
 
+	UPROPERTY()
+	int32 MonsterMaxCount;
+
 private:
 	TArray<FAPCharacterStat> CharacterStatTable;
 
+	TArray<FAPCharacterStat> MonsterStatTable;
 };

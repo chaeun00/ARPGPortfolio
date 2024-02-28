@@ -21,7 +21,7 @@ class ARPGPORTFOLIO_API IAPProjectileInterface
 	GENERATED_BODY()
 
 public:
-	virtual void OnReleased(FVector InStartLocation, FVector InForwardVector) = 0;
+	virtual void OnReleased(AActor* InAttacker, FVector InStartLocation, FVector InForwardVector, int32 InDamage) = 0;
 
 protected:
 	virtual void CollisionTrace() = 0;

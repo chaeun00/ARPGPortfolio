@@ -6,8 +6,6 @@
 #include "Animation/AnimInstance.h"
 #include "APAnimInstance.generated.h"
 
-DECLARE_LOG_CATEGORY_EXTERN(LogAPAnimInstance, Log, All)
-
 /**
  * 
  */

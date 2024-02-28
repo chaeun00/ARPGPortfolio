@@ -30,9 +30,11 @@ protected:
 	virtual void CollisionTrace() override;
 	virtual void EndHitFX() override;
 
+	AActor* Attacker;
+	int32 DamageAmount;
 	bool isPaused;
 
 public:
-	virtual void OnReleased(FVector InStartLocation, FVector InForwardVector) override;
+	virtual void OnReleased(AActor* InAttacker, FVector InStartLocation, FVector InForwardVector, int32 InDamage) override;
 
 };

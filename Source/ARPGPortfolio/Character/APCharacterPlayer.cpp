@@ -20,7 +20,9 @@
 #include "Projectile/APJavelin.h"
 #include "Projectile/APArrow.h"
 #include "CharacterStat/APCharacterStatComponent.h"
-#include "Character/APCharacterNonPlayer.h"
+#include "Character/APCharacterHorobinSword.h"
+#include "Character/APCharacterHorobinAxe.h"
+#include "Character/APCharacterHorobinArrow.h"
 
 DEFINE_LOG_CATEGORY(LogAPCharacterPlayer)
 
@@ -374,8 +376,14 @@ void AAPCharacterPlayer::BeginPlay()
 
 
 	// Spawn AI Enemy Test Code
-	const FTransform SpawnTransform(FVector(1000, 100, 100));
-	AAPCharacterNonPlayer* APOpponentCharacter = GetWorld()->SpawnActor<AAPCharacterNonPlayer>(AAPCharacterNonPlayer::StaticClass(), SpawnTransform);
+	//const FTransform SpawnTransform1(FVector(1000, 100, 100));
+	//AAPCharacterHorobinSword* APOpponentCharacter1 = GetWorld()->SpawnActor<AAPCharacterHorobinSword>(AAPCharacterHorobinSword::StaticClass(), SpawnTransform1);
+
+	//const FTransform SpawnTransform2(FVector(1000, 600, 100));
+	//AAPCharacterHorobinAxe* APOpponentCharacter2 = GetWorld()->SpawnActor<AAPCharacterHorobinAxe>(AAPCharacterHorobinAxe::StaticClass(), SpawnTransform2);
+
+	const FTransform SpawnTransform3(FVector(1000, 1100, 100));
+	AAPCharacterHorobinArrow* APOpponentCharacter3 = GetWorld()->SpawnActor<AAPCharacterHorobinArrow>(AAPCharacterHorobinArrow::StaticClass(), SpawnTransform3);
 }
 
 void AAPCharacterPlayer::SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent)
@@ -1071,7 +1079,7 @@ void AAPCharacterPlayer::ReleaseRightMouseButton()
 			Weapon->SetSkeletalMesh(nullptr);
 
 			AActor* Javelin = GetWorld()->SpawnActor(AAPJavelin::StaticClass());
-			CastChecked<AAPJavelin>(Javelin)->OnReleased(GetMesh()->GetSocketLocation(TEXT("hand_rSocket")), UKismetMathLibrary::GetForwardVector(GetControlRotation()));
+			CastChecked<AAPJavelin>(Javelin)->OnReleased(this, GetMesh()->GetSocketLocation(TEXT("hand_rSocket")), UKismetMathLibrary::GetForwardVector(GetControlRotation()), 15);
 		}
 
 		StartZoomOut();
@@ -1083,7 +1091,7 @@ void AAPCharacterPlayer::ReleaseRightMouseButton()
 			AnimInstance->Montage_Play(RecoilMontage);
 
 			AActor* Arrow = GetWorld()->SpawnActor(AAPArrow::StaticClass());
-			CastChecked<AAPArrow>(Arrow)->OnReleased(GetMesh()->GetSocketLocation(TEXT("hand_rSocket")), UKismetMathLibrary::GetForwardVector(GetControlRotation()));
+			CastChecked<AAPArrow>(Arrow)->OnReleased(this, GetMesh()->GetSocketLocation(TEXT("hand_rSocket")), UKismetMathLibrary::GetForwardVector(GetControlRotation()), Stat->GetTotalStat().Attack);
 		}
 		else
 		{

@@ -1,6 +1,3 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
-
 #include "AI/BTService_Detect.h"
 #include "APAI.h"
 #include "AIController.h"
@@ -38,7 +35,8 @@ void UBTService_Detect::TickNode(UBehaviorTreeComponent& OwnerComp, uint8* NodeM
 		return;
 	}
 
-	float DetectRadius = AIPawn->GetAIDetectRange();
+	// Detect Section
+	float DetectRadius = OwnerComp.GetBlackboardComponent()->GetValueAsObject(BBKEY_TARGET) == nullptr ? AIPawn->GetAIDetectRange() : AIPawn->GetAIChaseRange();
 
 	TArray<FOverlapResult> OverlapResults;
 	FCollisionQueryParams CollisionQueryParam(SCENE_QUERY_STAT(Detect), false, ControllingPawn);
@@ -60,14 +58,39 @@ void UBTService_Detect::TickNode(UBehaviorTreeComponent& OwnerComp, uint8* NodeM
 			{
 				OwnerComp.GetBlackboardComponent()->SetValueAsObject(BBKEY_TARGET, Pawn);
 				DrawDebugSphere(World, Center, DetectRadius, 16, FColor::Green, false, 0.2f);
+				return;
+			}
+		}
+	}
 
-				DrawDebugPoint(World, Pawn->GetActorLocation(), 10.0f, FColor::Green, false, 0.2f);
-				DrawDebugLine(World, ControllingPawn->GetActorLocation(), Pawn->GetActorLocation(), FColor::Green, false, 0.27f);
+	// Doubt Section
+	DetectRadius = AIPawn->GetAIDoubtRange();
+	TArray<FOverlapResult> DoubtOverlapResults;
+	bool bDoubtResult = World->OverlapMultiByChannel(
+		DoubtOverlapResults,
+		Center,
+		FQuat::Identity,
+		CCHANNEL_APACTION,
+		FCollisionShape::MakeSphere(DetectRadius),
+		CollisionQueryParam
+	);
+
+	if (bDoubtResult)
+	{
+		for (auto const& DoubtOverlapResult : DoubtOverlapResults)
+		{
+			APawn* Pawn = Cast<APawn>(DoubtOverlapResult.GetActor());
+			if (Pawn && Pawn->GetController()->IsPlayerController())
+			{
+				OwnerComp.GetBlackboardComponent()->SetValueAsObject(BBKEY_DOUBTTARGET, Pawn);
+				DrawDebugSphere(World, Center, DetectRadius, 16, FColor::Green, false, 0.2f);
 				return;
 			}
 		}
 	}
 
 	OwnerComp.GetBlackboardComponent()->SetValueAsObject(BBKEY_TARGET, nullptr);
+	OwnerComp.GetBlackboardComponent()->SetValueAsObject(BBKEY_DOUBTTARGET, nullptr);
+	OwnerComp.GetBlackboardComponent()->SetValueAsBool(BBKEY_SHOWNEXCLAMATIONMARK, false);
 	DrawDebugSphere(World, Center, DetectRadius, 16, FColor::Red, false, 0.2f);
 }

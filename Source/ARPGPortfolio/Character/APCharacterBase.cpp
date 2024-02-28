@@ -5,7 +5,6 @@
 #include "Components/CapsuleComponent.h"
 #include "Components/SphereComponent.h"
 #include "Components/BoxComponent.h"
-#include "Particles/ParticleSystemComponent.h"
 #include "CharacterStat/APCharacterStatComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/WorldSettings.h"
@@ -13,8 +12,10 @@
 #include "APComboActionData.h"
 #include "Animation/AnimMontage.h"
 #include "Item/APItems.h"
+#include "Particles/ParticleSystemComponent.h"
 #include "Physics/APCollision.h"
 #include "Engine/AssetManager.h"
+#include "Engine/DamageEvents.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "Kismet/GameplayStatics.h"
 #include "UI/APWidgetComponent.h"
@@ -77,6 +78,56 @@ AAPCharacterBase::AAPCharacterBase()
 
 	// Stat Section
 	Stat = CreateDefaultSubobject<UAPCharacterStatComponent>(TEXT("Stat"));
+
+	// Attack Hit Section
+	static ConstructorHelpers::FObjectFinder<UAnimMontage> HitMontageRef1(TEXT("/Script/Engine.AnimMontage'/Game/ARPGPortfolio/Animation/Hit01.Hit01'"));
+	if (HitMontageRef1.Object)
+	{
+		HitMontageArray.Add(HitMontageRef1.Object);
+	}
+
+	static ConstructorHelpers::FObjectFinder<UAnimMontage> HitMontageRef2(TEXT("/Script/Engine.AnimMontage'/Game/ARPGPortfolio/Animation/Hit02.Hit02'"));
+	if (HitMontageRef2.Object)
+	{
+		HitMontageArray.Add(HitMontageRef2.Object);
+	}
+
+	static ConstructorHelpers::FObjectFinder<UAnimMontage> HitMontageRef3(TEXT("/Script/Engine.AnimMontage'/Game/ARPGPortfolio/Animation/Hit03.Hit03'"));
+	if (HitMontageRef3.Object)
+	{
+		HitMontageArray.Add(HitMontageRef3.Object);
+	}
+
+	static ConstructorHelpers::FObjectFinder<UAnimMontage> HitMontageRef4(TEXT("/Script/Engine.AnimMontage'/Game/ARPGPortfolio/Animation/Hit04.Hit04'"));
+	if (HitMontageRef4.Object)
+	{
+		HitMontageArray.Add(HitMontageRef4.Object);
+	}
+
+	static ConstructorHelpers::FObjectFinder<UAnimMontage> HitMontageRef5(TEXT("/Script/Engine.AnimMontage'/Game/ARPGPortfolio/Animation/Hit05.Hit05'"));
+	if (HitMontageRef5.Object)
+	{
+		HitMontageArray.Add(HitMontageRef5.Object);
+	}
+
+	static ConstructorHelpers::FObjectFinder<UAnimMontage> CriticalHitMontageRef1(TEXT("/Script/Engine.AnimMontage'/Game/ARPGPortfolio/Animation/Hit_Crit01.Hit_Crit01'"));
+	if (CriticalHitMontageRef1.Object)
+	{
+		CriticalHitMontageArray.Add(CriticalHitMontageRef1.Object);
+	}
+
+	static ConstructorHelpers::FObjectFinder<UAnimMontage> CriticalHitMontageRef2(TEXT("/Script/Engine.AnimMontage'/Game/ARPGPortfolio/Animation/Hit_Crit02.Hit_Crit02'"));
+	if (CriticalHitMontageRef2.Object)
+	{
+		CriticalHitMontageArray.Add(CriticalHitMontageRef2.Object);
+	}
+
+	static ConstructorHelpers::FObjectFinder<UAnimMontage> CriticalHitMontageRef3(TEXT("/Script/Engine.AnimMontage'/Game/ARPGPortfolio/Animation/Hit_Crit03.Hit_Crit03'"));
+	if (CriticalHitMontageRef3.Object)
+	{
+		CriticalHitMontageArray.Add(CriticalHitMontageRef3.Object);
+	}
+	
 
 	// Dead Section
 	static ConstructorHelpers::FObjectFinder<UAnimMontage> DeadMontageRef(TEXT("/Script/Engine.AnimMontage'/Game/ARPGPortfolio/Animation/AM_Dead.AM_Dead'"));
@@ -287,6 +338,38 @@ void AAPCharacterBase::ApplyStat(const FAPCharacterStat& BaseStat, const FAPChar
 	UE_LOG(LogAPCharacterBase, Log, TEXT("Attack: %f, AttackRange: %f"), ModifierStat.Attack, ModifierStat.AttackRange);
 }
 
+void AAPCharacterBase::OnPlayerHit()
+{
+	GetWorld()->GetTimerManager().ClearTimer(ComboTimerHandle);
+	CurrentCombo = 0;
+
+	OnInvincible();
+}
+
+void AAPCharacterBase::OffPlayerHit()
+{
+	OffInvincible();
+}
+
+void AAPCharacterBase::HitProjectile(bool isCritical, int Attack)
+{
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	AnimInstance->StopAllMontages(0.0f);
+
+	if (isCritical)
+	{
+		int32 RandIndex = FMath::RandRange(0, CriticalHitMontageArray.Num() - 1);
+		AnimInstance->Montage_Play(CriticalHitMontageArray[RandIndex], 1.0f);
+	}
+	else
+	{
+		int32 RandIndex = FMath::RandRange(0, HitMontageArray.Num() - 1);
+		AnimInstance->Montage_Play(HitMontageArray[RandIndex], 1.0f);
+	}
+
+	Stat->ApplyDamage(Attack);
+}
+
 float AAPCharacterBase::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
 {
 	Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
@@ -299,7 +382,6 @@ float AAPCharacterBase::TakeDamage(float DamageAmount, FDamageEvent const& Damag
 void AAPCharacterBase::OnInvincible()
 {
 	bIsInvincible = true;
-	//GetWorld()->GetTimerManager().SetTimer(ComboTimerHandle, this, &AAPCharacterBase::OffInvincible, 0.5f, false);
 }
 
 void AAPCharacterBase::OffInvincible()
@@ -335,20 +417,47 @@ void AAPCharacterBase::PlayDeadAnimation()
 
 void AAPCharacterBase::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
-	UAnimInstance* OtherActorAnimInstance = CastChecked<AAPCharacterBase>(OtherActor)->GetMesh()->GetAnimInstance();
+	AAPCharacterBase* TargetActor =  Cast<AAPCharacterBase>(OtherActor);
+	if (nullptr == TargetActor)
+	{
+		return;
+	}
+
+	UAnimInstance* OtherActorAnimInstance = TargetActor->GetMesh()->GetAnimInstance();
 	UAnimInstance* ThisActorAnimInstance = GetMesh()->GetAnimInstance();
+	FDamageEvent DamageEvent;
 
 	if (OtherActor && this != CastChecked<AAPCharacterBase>(OtherActor) && !CastChecked<AAPCharacterBase>(OtherActor)->bIsInvincible)
 	{
-		if ((OtherActor->Tags.Find(TEXT("Enemy")) != INDEX_NONE) && (!OverlappedComp->ComponentHasTag(TEXT("Shield"))))
+		if (Tags.Find(TEXT("Player")) != INDEX_NONE && (OtherActor->Tags.Find(TEXT("Enemy")) != INDEX_NONE) && (!OverlappedComp->ComponentHasTag(TEXT("Shield"))))
 		{
 			OverlappingEnemiesCount++;
 
-			GetWorldSettings()->SetTimeDilation(0.3f);
+			GetWorldSettings()->SetTimeDilation(0.1f);
 			GetWorld()->GetFirstPlayerController()->PlayerCameraManager->PlayWorldCameraShake(GetWorld(), AttackHitCameraShake, GetActorLocation(), 0, 500, 1);
 			if (!bIsParryAttacking)
 			{
-				CastChecked<ACharacter>(OtherActor)->LaunchCharacter(UKismetMathLibrary::GetDirectionUnitVector(GetActorLocation(), OtherActor->GetActorLocation()) * ComboActionDataManager[CurrentWeaponType]->HitKnockBackAmount, false, false);
+				FVector KnockBackVector = UKismetMathLibrary::GetDirectionUnitVector(GetActorLocation(), OtherActor->GetActorLocation());
+				KnockBackVector.Z = 0;
+				CastChecked<ACharacter>(OtherActor)->LaunchCharacter(KnockBackVector * ComboActionDataManager[CurrentWeaponType]->HitKnockBackAmount, false, false);
+			}
+
+			int32 CritRate = FMath::RandRange(1, 10);
+			if (CritRate > 3)
+			{
+				int32 RandIndex = FMath::RandRange(0, HitMontageArray.Num() - 1);
+				OtherActorAnimInstance->StopAllMontages(0.0f);
+				OtherActorAnimInstance->Montage_Play(HitMontageArray[RandIndex], 1);
+
+				OtherActor->TakeDamage(Stat->GetTotalStat().Attack, DamageEvent, GetController(), this);
+			}
+			else
+			{
+				int32 RandIndex = FMath::RandRange(0, CriticalHitMontageArray.Num() - 1);
+				OtherActorAnimInstance->StopAllMontages(0.0f);
+				OtherActorAnimInstance->Montage_Play(CriticalHitMontageArray[RandIndex], 1.0f);
+
+				OtherActor->TakeDamage(Stat->GetTotalStat().Attack * 2, DamageEvent, GetController(), this);
 			}
 		}
 		
@@ -371,14 +480,18 @@ void AAPCharacterBase::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActo
 					{
 						UE_LOG(LogTemp, Log, TEXT("Parry Failed"));
 						CastChecked<AAPCharacterBase>(OtherActor)->ShieldParryMontageOff();
-						//UGameplayStatics::ApplyDamage(OtherActor, 4, GetController(), nullptr, NULL);
+
+						int32 RandIndex = FMath::RandRange(0, HitMontageArray.Num() - 1);
+						OtherActorAnimInstance->StopAllMontages(0.0f);
+						OtherActorAnimInstance->Montage_Play(HitMontageArray[RandIndex], 1);
+						OtherActor->TakeDamage(Stat->GetTotalStat().Attack, DamageEvent, GetController(), this);
 					}
 				}
 				else
 				{
 					OtherActorAnimInstance->StopAllMontages(0.0f);
 					OtherActorAnimInstance->Montage_Play(ShieldHitMontage, 1.0f);
-					//UGameplayStatics::ApplyDamage(OtherActor, 1, GetController(), nullptr, NULL);
+					OtherActor->TakeDamage(Stat->GetTotalStat().Attack / 2, DamageEvent, GetController(), this);
 				}
 			}
 			else
@@ -387,16 +500,16 @@ void AAPCharacterBase::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActo
 				{
 					UE_LOG(LogTemp, Log, TEXT("Nice Step Timing!"));
 					StartParry(OtherActor, this, 0.4f);
-
 				}
 				else
 				{
 					UE_LOG(LogTemp, Log, TEXT("Step Failed"));
-					//UGameplayStatics::ApplyDamage(OtherActor, 4, GetController(), nullptr, NULL);
+					int32 RandIndex = FMath::RandRange(0, HitMontageArray.Num() - 1);
+					OtherActorAnimInstance->StopAllMontages(0.0f);
+					OtherActorAnimInstance->Montage_Play(HitMontageArray[RandIndex], 1);
+					OtherActor->TakeDamage(Stat->GetTotalStat().Attack, DamageEvent, GetController(), this);
 				}
 			}
-
-			//CastChecked<AAPCharacterBase>(OtherActor)->OnInvincible();
 		}
 	}
 }
@@ -564,6 +677,7 @@ void AAPCharacterBase::StartParry(AActor* InParryActor, AActor* InTargetActor, f
 	ParryActor->SetHaveToRushToEnemy(InHaveToRushToEnemy);
 
 	UGameplayStatics::GetPlayerCameraManager(GetWorld(), 0)->StartCameraFade(0, 0.5f, 0.5f, FLinearColor::Black, false, true);
+
 	GetWorldSettings()->SetTimeDilation(InTimeDilation);
 }
 
@@ -670,7 +784,7 @@ void AAPCharacterBase::ComboActionBegin()
 
 void AAPCharacterBase::ComboActionEnd(UAnimMontage* TargetMontage, bool IsProperlyEnded)
 {
-	//ensure(CurrentCombo != 0);
+	GetWorld()->GetTimerManager().ClearTimer(ComboTimerHandle);
 	CurrentCombo = 0;
 
 	NotifyComboActionEnd();

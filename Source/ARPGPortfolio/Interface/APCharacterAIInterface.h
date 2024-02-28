@@ -14,6 +14,7 @@ class UAPCharacterAIInterface : public UInterface
 };
 
 DECLARE_DELEGATE(FAICharacterAttackFinished);
+DECLARE_DELEGATE(FAIMarkFinished);
 /**
  * 
  */
@@ -23,11 +24,24 @@ class ARPGPORTFOLIO_API IAPCharacterAIInterface
 
 	// Add interface functions to this class. This is the class that will be inherited to implement this interface.
 public:
+	virtual void RunNPCAI() = 0;
+	virtual void StopNPCAI() = 0;
+
 	virtual float GetAIPatrolRadius() = 0;
 	virtual float GetAIDetectRange() = 0;
 	virtual float GetAIDoubtRange() = 0;
+	virtual float GetAIChaseRange() = 0;
 	virtual float GetAIAttackRange() = 0;
 	virtual float GetAITurnSpeed() = 0;
+
+	virtual void ShowExclamationMark() = 0;
+	virtual void HideExclamationMark() = 0;
+	virtual void ShowQuestionMark() = 0;
+	virtual void HideQuestionMark() = 0;
+	virtual void SetAIQuestionMarkEndDelegate(const FAIMarkFinished& InOnMarkFinished) = 0;
+	virtual void SetAIExclamationMarkEndDelegate(const FAIMarkFinished& InOnMarkFinished) = 0;
+
+	virtual void CallNearMonsters() = 0;
 
 	virtual void SetAIAttackDelegate(const FAICharacterAttackFinished& InOnAttackFinished) = 0;
 	virtual void AttackByAI() = 0;

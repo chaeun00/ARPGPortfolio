@@ -31,6 +31,6 @@ protected:
 	virtual void EndHitFX() override;
 
 public:
-	virtual void OnReleased(FVector InStartLocation, FVector InForwardVector) override;
+	virtual void OnReleased(AActor* InAttacker, FVector InStartLocation, FVector InForwardVector, int32 InDamage) override;
 
 };

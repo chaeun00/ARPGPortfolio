@@ -5,8 +5,6 @@
 #include "GameFramework/Character.h"
 #include "GameFramework/CharacterMovementComponent.h"
 
-DEFINE_LOG_CATEGORY(LogAPAnimInstance)
-
 UAPAnimInstance::UAPAnimInstance()
 {
 	MovingThreshould = 3.0f;
@@ -24,7 +22,7 @@ void UAPAnimInstance::NativeInitializeAnimation()
 	}
 	else
 	{
-		UE_LOG(LogAPAnimInstance, Log, TEXT("Owner not casted"));
+		UE_LOG(LogTemp, Error, TEXT("Owner not casted"));
 	}
 }
 

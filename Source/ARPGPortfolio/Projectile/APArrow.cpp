@@ -7,6 +7,7 @@
 #include "NiagaraComponent.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Particles/ParticleSystemComponent.h"
+#include "Interface/APProjectileHitInterface.h"
 
 AAPArrow::AAPArrow()
 {
@@ -70,19 +71,42 @@ void AAPArrow::CollisionTrace()
 	ObjectTypesArray.Add(UEngineTypes::ConvertToObjectType(ECollisionChannel::ECC_WorldStatic));
 	TArray<AActor*> ActorsToIgnore;
 	ActorsToIgnore.Add(this);
+	ActorsToIgnore.Add(Attacker);
 	FHitResult HitResult;
 
+	// 해당 코드 중복이 너무 많음, 수정 요망
 	if (UKismetSystemLibrary::SphereTraceSingleForObjects(GetWorld(), Start, End, 5, ObjectTypesArray, false, ActorsToIgnore, EDrawDebugTrace::ForDuration, HitResult, true))
 	{
 		if (HitResult.GetActor()->Tags.Find(TEXT("Player")) != INDEX_NONE)
 		{
-			return;
+			int32 CritRate = FMath::RandRange(1, 10);
+			if (CritRate > 3)
+			{
+				CastChecked<IAPProjectileHitInterface>(HitResult.GetActor())->HitProjectile(false, DamageAmount);
+			}
+			else
+			{
+				CastChecked<IAPProjectileHitInterface>(HitResult.GetActor())->HitProjectile(true, DamageAmount * 2);
+			}
+
+			// FX 발생
 		}
 		else
 		{
 			if (HitResult.GetActor()->Tags.Find(TEXT("Enemy")) != INDEX_NONE)
 			{
 				UE_LOG(LogTemp, Log, TEXT("Enemy!"));
+
+				int32 CritRate = FMath::RandRange(1, 10);
+				if (CritRate > 3)
+				{
+					CastChecked<IAPProjectileHitInterface>(HitResult.GetActor())->HitProjectile(false, DamageAmount);
+				}
+				else
+				{
+					CastChecked<IAPProjectileHitInterface>(HitResult.GetActor())->HitProjectile(true, DamageAmount * 2);
+				}
+
 				HitFX->Activate(); // 추후 이펙트 풀로 옮겨라
 				Destroy();
 			}
@@ -101,8 +125,11 @@ void AAPArrow::EndHitFX()
 	Destroy();
 }
 
-void AAPArrow::OnReleased(FVector InStartLocation, FVector InForwardVector)
+void AAPArrow::OnReleased(AActor* InAttacker, FVector InStartLocation, FVector InForwardVector, int32 InDamage)
 {
+	Attacker = InAttacker;
+	DamageAmount = InDamage;
+
 	SetActorLocation(InStartLocation);
 
 	ArrowMesh->AddImpulse(InForwardVector * 3000);

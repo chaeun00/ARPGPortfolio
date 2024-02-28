@@ -5,14 +5,15 @@
 
 UAPGameSingleton::UAPGameSingleton()
 {
-	static ConstructorHelpers::FObjectFinder<UDataTable> DataTableRef(TEXT("/Script/Engine.DataTable'/Game/ARPGPortfolio/GameData/APCharacterStatTable.APCharacterStatTable'"));
-	if (nullptr != DataTableRef.Object)
+	// Character Stat
+	static ConstructorHelpers::FObjectFinder<UDataTable> CharacterDataTableRef(TEXT("/Script/Engine.DataTable'/Game/ARPGPortfolio/GameData/APCharacterStatTable.APCharacterStatTable'"));
+	if (nullptr != CharacterDataTableRef.Object)
 	{
-		const UDataTable* DataTable = DataTableRef.Object;
-		ensure(DataTable->GetRowMap().Num() > 0);
+		const UDataTable* CharacterDataTable = CharacterDataTableRef.Object;
+		ensure(CharacterDataTable->GetRowMap().Num() > 0);
 
 		TArray<uint8*> ValueArray;
-		DataTable->GetRowMap().GenerateValueArray(ValueArray);
+		CharacterDataTable->GetRowMap().GenerateValueArray(ValueArray);
 		Algo::Transform(ValueArray, CharacterStatTable,
 			[](uint8* Value)
 			{
@@ -23,6 +24,26 @@ UAPGameSingleton::UAPGameSingleton()
 
 	CharacterMaxLevel = CharacterStatTable.Num();
 	ensure(CharacterMaxLevel > 0);
+
+	// Monster Stat
+	static ConstructorHelpers::FObjectFinder<UDataTable> MonsterDataTableRef(TEXT("/Script/Engine.DataTable'/Game/ARPGPortfolio/GameData/APMonsterStatTable.APMonsterStatTable'"));
+	if (nullptr != MonsterDataTableRef.Object)
+	{
+		const UDataTable* MonsterDataTable = MonsterDataTableRef.Object;
+		check(MonsterDataTable->GetRowMap().Num() > 0);
+
+		TArray<uint8*> ValueArray;
+		MonsterDataTable->GetRowMap().GenerateValueArray(ValueArray);
+		Algo::Transform(ValueArray, MonsterStatTable,
+			[](uint8* Value)
+			{
+				return *reinterpret_cast<FAPCharacterStat*>(Value);
+			}
+		);
+	}
+
+	MonsterMaxCount = MonsterStatTable.Num();
+	check(MonsterMaxCount > 0);
 }
 
 UAPGameSingleton& UAPGameSingleton::Get()
