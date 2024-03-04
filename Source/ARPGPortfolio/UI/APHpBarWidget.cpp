@@ -18,8 +18,8 @@ void UAPHpBarWidget::NativeConstruct()
 	HpProgressBar = Cast<UProgressBar>(GetWidgetFromName(TEXT("PbHpBar")));
 	ensure(HpProgressBar);
 
-	HpStat = Cast<UTextBlock>(GetWidgetFromName(TEXT("TxtHpStat")));
-	ensure(HpStat);
+	//HpStat = Cast<UTextBlock>(GetWidgetFromName(TEXT("TxtHpStat")));
+	//ensure(HpStat);
 
 	IAPCharacterWidgetInterface* CharacterWidget = Cast<IAPCharacterWidgetInterface>(OwningActor);
 	if (CharacterWidget)

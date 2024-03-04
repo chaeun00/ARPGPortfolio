@@ -19,6 +19,7 @@ enum class EMonsterType : uint8
 	Horobin_Sword = 0,
 	Horobin_Arrow,
 	Horobin_Axe,
+	Horobin_Boss,
 	None
 };
 
@@ -70,6 +71,7 @@ protected:
 
 // UI Widget Section
 protected:
+	virtual void SetupHpBar();
 	virtual void SetupCharacterWidget(class UAPUserWidget* InUserWidget) override;
 
 	FOnQuestionMarkVisible OnQuestionMarkVisible;

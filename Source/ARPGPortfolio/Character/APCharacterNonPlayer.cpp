@@ -70,18 +70,7 @@ AAPCharacterNonPlayer::AAPCharacterNonPlayer()
 	}
 
 	// UI Widget Section
-	HpBar = CreateDefaultSubobject<UAPWidgetComponent>(TEXT("Widget"));
-	HpBar->SetupAttachment(GetMesh());
-	HpBar->SetRelativeLocation(FVector(0.0f, 0.0f, 180.0f));
-	static ConstructorHelpers::FClassFinder<UUserWidget> HpBarWidgetRef(TEXT("/Game/ARPGPortfolio/UI/WBP_HpBar_Monster.WBP_HpBar_Monster_C"));
-	if (HpBarWidgetRef.Class)
-	{
-		HpBar->SetWidgetClass(HpBarWidgetRef.Class);
-		HpBar->SetWidgetSpace(EWidgetSpace::Screen);
-		HpBar->SetDrawSize(FVector2D(150.0f, 20.0f));
-		HpBar->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-		HpBar->SetVisibility(false);
-	}
+	SetupHpBar();
 
 	Mark = CreateDefaultSubobject<UAPWidgetComponent>(TEXT("MarkWidget"));
 	Mark->SetupAttachment(GetMesh());
@@ -147,6 +136,22 @@ void AAPCharacterNonPlayer::SetMonsterStat()
 {
 	Stat->SetBaseStat(UAPGameSingleton::Get().GetMonsterStat((int32)MonsterType));
 	check(Stat->GetBaseStat().MaxHp > 0.0f);
+}
+
+void AAPCharacterNonPlayer::SetupHpBar()
+{
+	HpBar = CreateDefaultSubobject<UAPWidgetComponent>(TEXT("Widget"));
+	HpBar->SetupAttachment(GetMesh());
+	HpBar->SetRelativeLocation(FVector(0.0f, 0.0f, 180.0f));
+	static ConstructorHelpers::FClassFinder<UUserWidget> HpBarWidgetRef(TEXT("/Game/ARPGPortfolio/UI/WBP_HpBar_Monster.WBP_HpBar_Monster_C"));
+	if (HpBarWidgetRef.Class)
+	{
+		HpBar->SetWidgetClass(HpBarWidgetRef.Class);
+		HpBar->SetWidgetSpace(EWidgetSpace::Screen);
+		HpBar->SetDrawSize(FVector2D(150.0f, 20.0f));
+		HpBar->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		HpBar->SetVisibility(false);
+	}
 }
 
 void AAPCharacterNonPlayer::SetupCharacterWidget(UAPUserWidget* InUserWidget)

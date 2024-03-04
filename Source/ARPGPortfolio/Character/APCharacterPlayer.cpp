@@ -23,6 +23,7 @@
 #include "Character/APCharacterHorobinSword.h"
 #include "Character/APCharacterHorobinAxe.h"
 #include "Character/APCharacterHorobinArrow.h"
+#include "Character/APCharacterBoss.h"
 
 DEFINE_LOG_CATEGORY(LogAPCharacterPlayer)
 
@@ -382,8 +383,11 @@ void AAPCharacterPlayer::BeginPlay()
 	//const FTransform SpawnTransform2(FVector(1000, 600, 100));
 	//AAPCharacterHorobinAxe* APOpponentCharacter2 = GetWorld()->SpawnActor<AAPCharacterHorobinAxe>(AAPCharacterHorobinAxe::StaticClass(), SpawnTransform2);
 
-	const FTransform SpawnTransform3(FVector(1000, 1100, 100));
-	AAPCharacterHorobinArrow* APOpponentCharacter3 = GetWorld()->SpawnActor<AAPCharacterHorobinArrow>(AAPCharacterHorobinArrow::StaticClass(), SpawnTransform3);
+	//const FTransform SpawnTransform3(FVector(1000, 1100, 100));
+	//AAPCharacterHorobinArrow* APOpponentCharacter3 = GetWorld()->SpawnActor<AAPCharacterHorobinArrow>(AAPCharacterHorobinArrow::StaticClass(), SpawnTransform3);
+
+	const FTransform SpawnTransform4(FVector(1000, 1500, 100));
+	AAPCharacterBoss* APOpponentCharacter3 = GetWorld()->SpawnActor<AAPCharacterBoss>(AAPCharacterBoss::StaticClass(), SpawnTransform4);
 }
 
 void AAPCharacterPlayer::SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent)

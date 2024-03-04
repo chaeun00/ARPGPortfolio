@@ -80,6 +80,12 @@ AAPCharacterBase::AAPCharacterBase()
 	Stat = CreateDefaultSubobject<UAPCharacterStatComponent>(TEXT("Stat"));
 
 	// Attack Hit Section
+	static ConstructorHelpers::FClassFinder<UCameraShakeBase> AttackHitCameraShakeRef(TEXT("/Script/Engine.Blueprint'/Game/ARPGPortfolio/CameraShake/AttackHitCameraShake.AttackHitCameraShake_C'"));
+	if (nullptr != AttackHitCameraShakeRef.Class)
+	{
+		AttackHitCameraShake = AttackHitCameraShakeRef.Class;
+	}
+
 	static ConstructorHelpers::FObjectFinder<UAnimMontage> HitMontageRef1(TEXT("/Script/Engine.AnimMontage'/Game/ARPGPortfolio/Animation/Hit01.Hit01'"));
 	if (HitMontageRef1.Object)
 	{
