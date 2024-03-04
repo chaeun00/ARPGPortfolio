@@ -272,6 +272,18 @@ void AAPCharacterNonPlayer::CallNearMonsters()
 	}
 }
 
+void AAPCharacterNonPlayer::FireByAI()
+{
+}
+
+void AAPCharacterNonPlayer::JumpAttackByAI()
+{
+}
+
+void AAPCharacterNonPlayer::BackstepByAI()
+{
+}
+
 void AAPCharacterNonPlayer::SetAIQuestionMarkEndDelegate(const FAIMarkFinished& InOnMarkFinished)
 {
 	OnQuestionMarkFinished = InOnMarkFinished;
@@ -299,6 +311,21 @@ void AAPCharacterNonPlayer::StopNPCAI()
 		OnQuestionMarkHidden.ExecuteIfBound();
 		APAIController->StopAI();
 	}
+}
+
+void AAPCharacterNonPlayer::SetGroundSpeedWalk()
+{
+	GetCharacterMovement()->MaxWalkSpeed = MAX_SPEED_WALK;
+}
+
+void AAPCharacterNonPlayer::SetGroundSpeedRun()
+{
+	GetCharacterMovement()->MaxWalkSpeed = (MAX_SPEED_WALK + MAX_SPEED_DASH) / 2;
+}
+
+void AAPCharacterNonPlayer::SetGroundSpeedRush()
+{
+	GetCharacterMovement()->MaxWalkSpeed = MAX_SPEED_DASH;
 }
 
 void AAPCharacterNonPlayer::ShowExclamationMark()
@@ -375,6 +402,7 @@ void AAPCharacterNonPlayer::NotifyComboActionEnd()
 	{
 	case EMonsterType::Horobin_Sword:
 	case EMonsterType::Horobin_Axe:
+	case EMonsterType::Horobin_Boss:
 		OnAttackFinished.ExecuteIfBound();
 		break;
 

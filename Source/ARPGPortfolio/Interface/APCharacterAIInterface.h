@@ -27,6 +27,10 @@ public:
 	virtual void RunNPCAI() = 0;
 	virtual void StopNPCAI() = 0;
 
+	virtual void SetGroundSpeedWalk() = 0;
+	virtual void SetGroundSpeedRun() = 0;
+	virtual void SetGroundSpeedRush() = 0;
+
 	virtual float GetAIPatrolRadius() = 0;
 	virtual float GetAIDetectRange() = 0;
 	virtual float GetAIDoubtRange() = 0;
@@ -45,4 +49,8 @@ public:
 
 	virtual void SetAIAttackDelegate(const FAICharacterAttackFinished& InOnAttackFinished) = 0;
 	virtual void AttackByAI() = 0;
+	
+	virtual void JumpAttackByAI() = 0;
+	virtual void FireByAI() = 0;
+	virtual void BackstepByAI() = 0;
 };

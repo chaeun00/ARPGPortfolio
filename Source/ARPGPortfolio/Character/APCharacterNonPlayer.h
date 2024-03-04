@@ -86,12 +86,20 @@ public:
 	virtual void RunNPCAI() override;
 	virtual void StopNPCAI() override;
 
+	virtual void SetGroundSpeedWalk() override;
+	virtual void SetGroundSpeedRun() override;
+	virtual void SetGroundSpeedRush() override;
+
 	virtual void ShowExclamationMark() override;
 	virtual void HideExclamationMark() override;
 	virtual void ShowQuestionMark() override;
 	virtual void HideQuestionMark() override;
 
 	virtual void CallNearMonsters() override;
+
+	virtual void FireByAI() override;
+	virtual void JumpAttackByAI() override;
+	virtual void BackstepByAI() override;
 
 protected:
 	virtual float GetAIPatrolRadius() override;

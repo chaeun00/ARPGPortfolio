@@ -17,13 +17,13 @@ class ARPGPORTFOLIO_API AAPAIController : public AAIController
 public:
 	AAPAIController();
 
-	void RunAI();
-	void StopAI();
+	virtual void RunAI();
+	virtual void StopAI();
 
 protected:
 	virtual void OnPossess(APawn* InPawn) override;
 
-private:
+protected:
 	UPROPERTY()
 	TObjectPtr<class UBlackboardData> BBAsset;
 
