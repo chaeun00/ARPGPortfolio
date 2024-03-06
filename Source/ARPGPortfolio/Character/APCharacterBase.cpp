@@ -12,6 +12,7 @@
 #include "APComboActionData.h"
 #include "Animation/AnimMontage.h"
 #include "Item/APItems.h"
+#include "Interface/APSpawnFXInterface.h"
 #include "Particles/ParticleSystemComponent.h"
 #include "Physics/APCollision.h"
 #include "Engine/AssetManager.h"
@@ -349,7 +350,9 @@ void AAPCharacterBase::OnPlayerHit()
 	GetWorld()->GetTimerManager().ClearTimer(ComboTimerHandle);
 	CurrentCombo = 0;
 
+	GetWorld()->GetTimerManager().ClearTimer(InvincibilityTimerHandle);
 	OnInvincible();
+	GetWorld()->GetTimerManager().SetTimer(InvincibilityTimerHandle, this, &AAPCharacterBase::OffPlayerHit, 0.5f);
 }
 
 void AAPCharacterBase::OffPlayerHit()
@@ -383,6 +386,10 @@ float AAPCharacterBase::TakeDamage(float DamageAmount, FDamageEvent const& Damag
 	Stat->ApplyDamage(DamageAmount);
 
 	return DamageAmount;
+}
+
+void AAPCharacterBase::OnPlayerHitFX(FVector InPosition, FRotator InRotation)
+{
 }
 
 void AAPCharacterBase::OnInvincible()
@@ -437,6 +444,29 @@ void AAPCharacterBase::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActo
 	{
 		if (Tags.Find(TEXT("Player")) != INDEX_NONE && (OtherActor->Tags.Find(TEXT("Enemy")) != INDEX_NONE) && (!OverlappedComp->ComponentHasTag(TEXT("Shield"))))
 		{
+			// JumpAttack
+			if (ThisActorAnimInstance->Montage_IsPlaying(JumpAttackMontageManager[CurrentWeaponType]))
+			{
+				OtherActor->TakeDamage(Stat->GetTotalStat().Attack * 2, DamageEvent, GetController(), this);
+
+				switch (CurrentWeaponType)
+				{
+				case EWeaponType::Blade:
+					CastChecked<IAPSpawnFXInterface>(GetWorld()->GetAuthGameMode())->SpawnFX(EFXType::Melee_Blade_Critical, OtherActor->GetActorLocation() + FVector(0, 0, 50), GetActorRotation());
+					break;
+
+				case EWeaponType::Spear:
+					CastChecked<IAPSpawnFXInterface>(GetWorld()->GetAuthGameMode())->SpawnFX(EFXType::Melee_Spear_Critical, OtherActor->GetActorLocation() + FVector(0, 0, 50), GetActorRotation());
+					break;
+
+				default:
+					break;
+				}
+
+				return;
+			}
+
+			// MeleeAttack
 			OverlappingEnemiesCount++;
 
 			GetWorldSettings()->SetTimeDilation(0.1f);
@@ -456,6 +486,20 @@ void AAPCharacterBase::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActo
 				OtherActorAnimInstance->Montage_Play(HitMontageArray[RandIndex], 1);
 
 				OtherActor->TakeDamage(Stat->GetTotalStat().Attack, DamageEvent, GetController(), this);
+
+				switch (CurrentWeaponType)
+				{
+				case EWeaponType::Blade:
+					CastChecked<IAPSpawnFXInterface>(GetWorld()->GetAuthGameMode())->SpawnFX(EFXType::Melee_Blade, OverlappedComp->GetComponentLocation(), GetActorRotation());
+					break;
+
+				case EWeaponType::Spear:
+					CastChecked<IAPSpawnFXInterface>(GetWorld()->GetAuthGameMode())->SpawnFX(EFXType::Melee_Spear, OverlappedComp->GetComponentLocation(), GetActorRotation());
+					break;
+
+				default:
+					break;
+				}
 			}
 			else
 			{
@@ -464,6 +508,20 @@ void AAPCharacterBase::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActo
 				OtherActorAnimInstance->Montage_Play(CriticalHitMontageArray[RandIndex], 1.0f);
 
 				OtherActor->TakeDamage(Stat->GetTotalStat().Attack * 2, DamageEvent, GetController(), this);
+
+				switch (CurrentWeaponType)
+				{
+				case EWeaponType::Blade:
+					CastChecked<IAPSpawnFXInterface>(GetWorld()->GetAuthGameMode())->SpawnFX(EFXType::Melee_Blade_Critical, OverlappedComp->GetComponentLocation(), GetActorRotation());
+					break;
+
+				case EWeaponType::Spear:
+					CastChecked<IAPSpawnFXInterface>(GetWorld()->GetAuthGameMode())->SpawnFX(EFXType::Melee_Spear_Critical, OverlappedComp->GetComponentLocation(), GetActorRotation());
+					break;
+
+				default:
+					break;
+				}
 			}
 		}
 		
@@ -481,6 +539,8 @@ void AAPCharacterBase::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActo
 
 						ThisActorAnimInstance->StopAllMontages(0.0f);
 						ThisActorAnimInstance->Montage_Play(ShieldHitMontage, 1.0f);
+
+						CastChecked<IAPSpawnFXInterface>(GetWorld()->GetAuthGameMode())->SpawnFX(EFXType::ShieldParryHit, OverlappedComp->GetComponentLocation(), GetActorRotation());
 					}
 					else
 					{
@@ -491,6 +551,8 @@ void AAPCharacterBase::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActo
 						OtherActorAnimInstance->StopAllMontages(0.0f);
 						OtherActorAnimInstance->Montage_Play(HitMontageArray[RandIndex], 1);
 						OtherActor->TakeDamage(Stat->GetTotalStat().Attack, DamageEvent, GetController(), this);
+
+						OnPlayerHitFX(OverlappedComp->GetComponentLocation(), GetActorRotation());
 					}
 				}
 				else
@@ -498,6 +560,8 @@ void AAPCharacterBase::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActo
 					OtherActorAnimInstance->StopAllMontages(0.0f);
 					OtherActorAnimInstance->Montage_Play(ShieldHitMontage, 1.0f);
 					OtherActor->TakeDamage(Stat->GetTotalStat().Attack / 2, DamageEvent, GetController(), this);
+
+					CastChecked<IAPSpawnFXInterface>(GetWorld()->GetAuthGameMode())->SpawnFX(EFXType::Dust, OverlappedComp->GetComponentLocation(), GetActorRotation());
 				}
 			}
 			else
@@ -509,11 +573,12 @@ void AAPCharacterBase::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActo
 				}
 				else
 				{
-					UE_LOG(LogTemp, Log, TEXT("Step Failed"));
 					int32 RandIndex = FMath::RandRange(0, HitMontageArray.Num() - 1);
 					OtherActorAnimInstance->StopAllMontages(0.0f);
 					OtherActorAnimInstance->Montage_Play(HitMontageArray[RandIndex], 1);
 					OtherActor->TakeDamage(Stat->GetTotalStat().Attack, DamageEvent, GetController(), this);
+
+					OnPlayerHitFX(OverlappedComp->GetComponentLocation(), GetActorRotation());
 				}
 			}
 		}
@@ -947,7 +1012,7 @@ void AAPCharacterBase::JumpAttackEnd()
 	JumpAttackMontageManager[EWeaponType::Blade]->bEnableAutoBlendOut = true;
 
 	JumpAttackCollisionOn();
-	GetWorld()->GetTimerManager().SetTimer(ComboTimerHandle, this, &AAPCharacterBase::JumpAttackCollisionOff, 0.9f, false);
+	GetWorld()->GetTimerManager().SetTimer(ComboTimerHandle, this, &AAPCharacterBase::JumpAttackCollisionOff, FApp::GetDeltaTime(), false);
 }
 
 void AAPCharacterBase::SetIsGroundCheckTimer()

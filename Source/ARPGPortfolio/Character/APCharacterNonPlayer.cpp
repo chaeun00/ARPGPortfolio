@@ -14,6 +14,7 @@
 #include "BehaviorTree/BehaviorTreeComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameData/APGameSingleton.h"
+#include "Interface/APSpawnFXInterface.h"
 #include "Physics/APCollision.h"
 #include "Engine/AssetManager.h"
 
@@ -413,6 +414,40 @@ void AAPCharacterNonPlayer::NotifyComboActionEnd()
 				OnAttackFinished.ExecuteIfBound();
 			}
 		), ArrowDelayTime, false);
+		break;
+
+	default:
+		break;
+	}
+}
+
+void AAPCharacterNonPlayer::OnPlayerHitFX(FVector InPosition, FRotator InRotation)
+{
+	switch (MonsterType)
+	{
+	case EMonsterType::Horobin_Sword:
+		CastChecked<IAPSpawnFXInterface>(GetWorld()->GetAuthGameMode())->SpawnFX(EFXType::Melee_Blade_Critical, InPosition, InRotation);
+		break;
+
+	case EMonsterType::Horobin_Arrow:
+		break;
+
+	case EMonsterType::Horobin_Axe:
+		CastChecked<IAPSpawnFXInterface>(GetWorld()->GetAuthGameMode())->SpawnFX(EFXType::Melee_Spear_Critical, InPosition, InRotation);
+		break;
+
+	case EMonsterType::Horobin_Boss:
+		if (FMath::RandRange(0, 1))
+		{
+			CastChecked<IAPSpawnFXInterface>(GetWorld()->GetAuthGameMode())->SpawnFX(EFXType::Melee_Boss, InPosition, InRotation);
+		}
+		else
+		{
+			CastChecked<IAPSpawnFXInterface>(GetWorld()->GetAuthGameMode())->SpawnFX(EFXType::Melee_Boss, InPosition, InRotation);
+		}
+		break;
+
+	case EMonsterType::None:
 		break;
 
 	default:

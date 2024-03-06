@@ -3,6 +3,7 @@
 
 #include "Game/APGameMode.h"
 #include "Player/APPlayerController.h"
+#include "FX/APEffectPool.h"
 
 DEFINE_LOG_CATEGORY(LogAPGameMode)
 
@@ -40,4 +41,17 @@ void AAPGameMode::OnPlayerDead()
 	{
 		UE_LOG(LogAPGameMode, Log, TEXT("APPlayerController cast failed"));
 	}
+}
+
+void AAPGameMode::BeginPlay()
+{
+	Super::BeginPlay();
+
+	// EffectPool Section
+	EffectPool = GetWorld()->SpawnActor<AAPEffectPool>(AAPEffectPool::StaticClass());
+}
+
+void AAPGameMode::SpawnFX(EFXType InType, FVector InPosition, FRotator InRotation)
+{
+	EffectPool->SpawnFX(InType, InPosition, InRotation);
 }

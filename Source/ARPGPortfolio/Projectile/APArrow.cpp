@@ -3,11 +3,13 @@
 
 #include "Projectile/APArrow.h"
 #include "Components/StaticMeshComponent.h"
+#include "FX/APEffect.h"
 #include "NiagaraFunctionLibrary.h"
 #include "NiagaraComponent.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Particles/ParticleSystemComponent.h"
 #include "Interface/APProjectileHitInterface.h"
+#include "Interface/APSpawnFXInterface.h"
 
 AAPArrow::AAPArrow()
 {
@@ -37,16 +39,6 @@ AAPArrow::AAPArrow()
 	{
 		TrailFX->SetAsset(TrailFXRef.Object);
 	}
-
-	HitFX = CreateDefaultSubobject<UParticleSystemComponent>(TEXT("HitFX"));
-	HitFX->SetupAttachment(RootComponent);
-	HitFX->SetAutoActivate(false);
-
-	static ConstructorHelpers::FObjectFinder<UParticleSystem> HitFXRef(TEXT("/Script/Engine.ParticleSystem'/Game/InfinityBladeEffects/Effects/FX_Monsters/FX_Monster_Gruntling/Master/P_MasterGrunt_Drag_Dust.P_MasterGrunt_Drag_Dust'"));
-	if (HitFXRef.Object)
-	{
-		HitFX->SetTemplate(HitFXRef.Object);
-	}
 }
 
 void AAPArrow::Tick(float DeltaTime)
@@ -74,22 +66,12 @@ void AAPArrow::CollisionTrace()
 	ActorsToIgnore.Add(Attacker);
 	FHitResult HitResult;
 
-	// 해당 코드 중복이 너무 많음, 수정 요망
 	if (UKismetSystemLibrary::SphereTraceSingleForObjects(GetWorld(), Start, End, 5, ObjectTypesArray, false, ActorsToIgnore, EDrawDebugTrace::ForDuration, HitResult, true))
 	{
 		if (HitResult.GetActor()->Tags.Find(TEXT("Player")) != INDEX_NONE)
 		{
-			int32 CritRate = FMath::RandRange(1, 10);
-			if (CritRate > 3)
-			{
-				CastChecked<IAPProjectileHitInterface>(HitResult.GetActor())->HitProjectile(false, DamageAmount);
-			}
-			else
-			{
-				CastChecked<IAPProjectileHitInterface>(HitResult.GetActor())->HitProjectile(true, DamageAmount * 2);
-			}
-
-			// FX 발생
+			CastChecked<IAPProjectileHitInterface>(HitResult.GetActor())->HitProjectile(false, DamageAmount);
+			CastChecked<IAPSpawnFXInterface>(GetWorld()->GetAuthGameMode())->SpawnFX(EFXType::ArrowHit, GetActorLocation(), GetActorRotation());
 		}
 		else
 		{
@@ -101,28 +83,25 @@ void AAPArrow::CollisionTrace()
 				if (CritRate > 3)
 				{
 					CastChecked<IAPProjectileHitInterface>(HitResult.GetActor())->HitProjectile(false, DamageAmount);
+					CastChecked<IAPSpawnFXInterface>(GetWorld()->GetAuthGameMode())->SpawnFX(EFXType::ArrowHit, GetActorLocation(), GetActorRotation());
 				}
 				else
 				{
 					CastChecked<IAPProjectileHitInterface>(HitResult.GetActor())->HitProjectile(true, DamageAmount * 2);
+					CastChecked<IAPSpawnFXInterface>(GetWorld()->GetAuthGameMode())->SpawnFX(EFXType::ArrowHit_Critical, GetActorLocation(), GetActorRotation());
 				}
-
-				HitFX->Activate(); // 추후 이펙트 풀로 옮겨라
-				Destroy();
 			}
 			else
 			{
 				UE_LOG(LogTemp, Log, TEXT("Background!"));
-				HitFX->Activate(); // 추후 이펙트 풀로 옮겨라
+				CastChecked<IAPSpawnFXInterface>(GetWorld()->GetAuthGameMode())->SpawnFX(EFXType::Dust, GetActorLocation(), GetActorRotation());
 				isPaused = true;
+				return;
 			}
 		}
-	}
-}
 
-void AAPArrow::EndHitFX()
-{
-	Destroy();
+		Destroy();
+	}
 }
 
 void AAPArrow::OnReleased(AActor* InAttacker, FVector InStartLocation, FVector InForwardVector, int32 InDamage)

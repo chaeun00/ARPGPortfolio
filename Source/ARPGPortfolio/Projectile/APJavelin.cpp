@@ -8,6 +8,7 @@
 #include "Kismet/KismetSystemLibrary.h"
 #include "Particles/ParticleSystemComponent.h"
 #include "Interface/APProjectileHitInterface.h"
+#include "Interface/APSpawnFXInterface.h"
 
 AAPJavelin::AAPJavelin()
 {
@@ -37,16 +38,6 @@ AAPJavelin::AAPJavelin()
 	if (TrailFXRef.Object)
 	{
 		TrailFX->SetAsset(TrailFXRef.Object);
-	}
-
-	HitFX = CreateDefaultSubobject<UParticleSystemComponent>(TEXT("HitFX"));
-	HitFX->SetupAttachment(RootComponent);
-	HitFX->SetAutoActivate(false);
-
-	static ConstructorHelpers::FObjectFinder<UParticleSystem> HitFXRef(TEXT("/Script/Engine.ParticleSystem'/Game/InfinityBladeEffects/Effects/FX_Mobile/Fire/combat/P_HeldCharge_Fire_00.P_HeldCharge_Fire_00'"));
-	if (HitFXRef.Object)
-	{
-		HitFX->SetTemplate(HitFXRef.Object);
 	}
 }
 
@@ -81,32 +72,18 @@ void AAPJavelin::CollisionTrace()
 		{
 			if (HitResult.GetActor()->Tags.Find(TEXT("Enemy")) != INDEX_NONE)
 			{
-				UE_LOG(LogTemp, Log, TEXT("Enemy!"));
-
+				//UE_LOG(LogTemp, Log, TEXT("Enemy!"));
 				CastChecked<IAPProjectileHitInterface>(HitResult.GetActor())->HitProjectile(true, 15);
-
-				HitFX->Activate(); // 추후 이펙트 풀로 옮겨라
-				/* 이펙트가 활성화되면 실행되야하는 코드 (HitStop & CameraShake)
-				GetWorldSettings()->SetTimeDilation(0.1f);
-				GetWorld()->GetFirstPlayerController()->PlayerCameraManager->PlayWorldCameraShake(GetWorld(), AttackHitCameraShake, GetActorLocation(), 0, 500, 1);
-				GetWorldSettings()->SetTimeDilation(1);
-				GetWorld()->GetFirstPlayerController()->PlayerCameraManager->StopAllCameraShakes();
-				*/
-				Destroy();
 			}
 			else
 			{
-				UE_LOG(LogTemp, Log, TEXT("Background!"));
-				HitFX->Activate(); // 추후 이펙트 풀로 옮겨라
-				Destroy();
+				//UE_LOG(LogTemp, Log, TEXT("Background!"));
 			}
+
+			CastChecked<IAPSpawnFXInterface>(GetWorld()->GetAuthGameMode())->SpawnFX(EFXType::Melee_Spear_Critical, GetActorLocation(), GetActorRotation());
+			Destroy();
 		}
 	}
-}
-
-void AAPJavelin::EndHitFX()
-{
-	Destroy();
 }
 
 void AAPJavelin::OnReleased(AActor* InAttacker, FVector InStartLocation, FVector InForwardVector, int32 Damage)

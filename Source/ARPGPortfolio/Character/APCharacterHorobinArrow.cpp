@@ -34,6 +34,6 @@ float AAPCharacterHorobinArrow::GetAIAttackRange()
 
 void AAPCharacterHorobinArrow::FireArrow()
 {
-	AActor* Arrow = GetWorld()->SpawnActor(AAPArrow::StaticClass());
-	CastChecked<AAPArrow>(Arrow)->OnReleased(this, GetMesh()->GetSocketLocation(TEXT("hand_lSocket")), GetActorForwardVector(), Stat->GetTotalStat().Attack);
+	AAPArrow* Arrow = GetWorld()->SpawnActor<AAPArrow>(AAPArrow::StaticClass());
+	Arrow->OnReleased(this, GetMesh()->GetSocketLocation(TEXT("hand_lSocket")), GetActorForwardVector(), Stat->GetTotalStat().Attack);
 }

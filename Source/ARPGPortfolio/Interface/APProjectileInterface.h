@@ -25,5 +25,4 @@ public:
 
 protected:
 	virtual void CollisionTrace() = 0;
-	virtual void EndHitFX() = 0;
 };

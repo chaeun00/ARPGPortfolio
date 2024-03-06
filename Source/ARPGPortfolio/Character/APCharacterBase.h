@@ -77,6 +77,7 @@ protected:
 	uint8 bIsInvincible : 1;
 
 	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, AActor* DamageCauser) override;
+	virtual void OnPlayerHitFX(FVector InPosition, FRotator InRotation);
 	void OnInvincible();
 	void OffInvincible();
 

@@ -24,11 +24,7 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = FX)
 	TObjectPtr<class UNiagaraComponent> TrailFX;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = FX)
-	TObjectPtr<class UParticleSystemComponent> HitFX;
-
 	virtual void CollisionTrace() override;
-	virtual void EndHitFX() override;
 
 	AActor* Attacker;
 	int32 DamageAmount;

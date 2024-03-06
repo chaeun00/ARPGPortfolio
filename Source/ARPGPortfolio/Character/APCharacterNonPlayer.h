@@ -121,4 +121,8 @@ protected:
 	FAICharacterAttackFinished OnAttackFinished;
 	FTimerHandle DelayTimerHandle;
 	float ArrowDelayTime;
+
+// Attack Hit Section
+protected:
+	virtual void OnPlayerHitFX(FVector InPosition, FRotator InRotation) override;
 };

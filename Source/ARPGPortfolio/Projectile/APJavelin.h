@@ -28,7 +28,6 @@ protected:
 	TObjectPtr<class UParticleSystemComponent> HitFX;
 
 	virtual void CollisionTrace() override;
-	virtual void EndHitFX() override;
 
 public:
 	virtual void OnReleased(AActor* InAttacker, FVector InStartLocation, FVector InForwardVector, int32 InDamage) override;
