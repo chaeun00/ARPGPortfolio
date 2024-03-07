@@ -113,6 +113,9 @@ protected:
 	TObjectPtr<class UInputAction> EquipBowAction;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, Meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<class UInputAction> EquipMagnetCatcherAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, Meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<class UInputAction> AttackAction;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, Meta = (AllowPrivateAccess = "true"))
@@ -265,6 +268,36 @@ protected:
 
 	void JumpArrowShotProcess();
 
+// MagnetCatcher Section
+protected:
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = MagnetCatcher)
+	TObjectPtr<UStaticMeshComponent> MagnetReference;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = MagnetCatcher)
+	TObjectPtr<UPrimitiveComponent> MagnetTarget;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = MagnetCatcher, Meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<class UAnimMontage> MagnetShootMontage;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = MagnetCatcher)
+	uint32 bIsMagnetOn : 1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = MagnetCatcher)
+	uint32 bIsLaunched : 1;
+
+	void OnMagnet();
+	void OffMagnet();
+
+	void MagnetTrace();
+	void MoveMagnetTarget();
+	void LaunchTarget();
+
+	void PlayOnMagnetFX();
+	void PlayMagnetCatchFX();
+
+	FTimerHandle MagnetFXTimerHandle;
+
 // UI Section
+protected:
 	void NPCHpBarTrace();
 };

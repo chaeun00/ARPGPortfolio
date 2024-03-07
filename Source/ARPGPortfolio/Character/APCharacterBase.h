@@ -12,6 +12,7 @@
 #include "Interface/APParryAttackEndInterface.h"
 #include "Interface/APCharacterWidgetInterface.h"
 #include "Interface/APProjectileHitInterface.h"
+#include "Interface/APGetAnimInstanceInterface.h"
 #include "APCharacterBase.generated.h"
 
 #define	GRAVITYSCALE_DEFAULT		1.6f
@@ -34,7 +35,7 @@ enum class ECharacterControlType : uint8
 
 UCLASS()
 class ARPGPORTFOLIO_API AAPCharacterBase : public ACharacter,
-	public IAPAnimationAttackInterface, public IAPJumpAttackInterface, public IAPChargeAttackInterface,
+	public IAPAnimationAttackInterface, public IAPJumpAttackInterface, public IAPChargeAttackInterface, public IAPGetAnimInstanceInterface,
 	public IAPShieldParryInterface, public IAPParryAttackEndInterface, public IAPCharacterWidgetInterface, public IAPProjectileHitInterface
 {
 	GENERATED_BODY()
@@ -49,6 +50,10 @@ protected:
 
 	UPROPERTY(EditAnywhere, Category = CharacterControl, Meta = (AllowPrivateAccess = "true"))
 	TMap<ECharacterControlType, class UAPCharacterControlData*> CharacterControlManager;
+
+// AnimInstance Section
+public:
+	virtual class UAnimInstance* GetActorAnimInstance() override;
 
 // Stat Section
 protected:

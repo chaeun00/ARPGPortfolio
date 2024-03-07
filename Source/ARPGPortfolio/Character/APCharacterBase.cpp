@@ -330,6 +330,11 @@ void AAPCharacterBase::SetCharacterControlData(const UAPCharacterControlData* Ch
 	GetCharacterMovement()->RotationRate = CharacterControlData->RotationRate;
 }
 
+class UAnimInstance* AAPCharacterBase::GetActorAnimInstance()
+{
+	return GetMesh()->GetAnimInstance();
+}
+
 int32 AAPCharacterBase::GetLevel()
 {
 	return Stat->GetCurrentLevel();
@@ -645,6 +650,12 @@ void AAPCharacterBase::EquipWeapon(EWeaponType InWeaponType)
 			CurrentWeaponType = EWeaponType::Bow;
 			break;
 
+		case EWeaponType::MagnetCatcher:
+			SetWeapon(WeaponItemData);
+			UnSetShield();
+			ShieldCollisionOff();
+
+			CurrentWeaponType = EWeaponType::MagnetCatcher;
 		default:
 			break;
 		}

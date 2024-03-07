@@ -25,6 +25,7 @@ public:
 	FORCEINLINE void SetIsClimbingLadder(uint8 InValue) { bIsClimbingLadder = InValue; }
 	FORCEINLINE void SetIsTargetingLock(uint8 InValue) { bIsTargetingLock = InValue; }
 	FORCEINLINE void SetIsHoldingShield(uint8 InValue) { bIsHoldingShield = InValue; }
+	FORCEINLINE void SetIsHoldingMagnet(uint8 InValue) { bIsHoldingMagnet = InValue; }
 
 protected:
 	virtual void NativeInitializeAnimation() override;
@@ -70,4 +71,6 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Character)
 	uint8 bIsHoldingShield : 1;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Character)
+	uint8 bIsHoldingMagnet : 1;
 };

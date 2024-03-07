@@ -14,5 +14,8 @@ enum class EFXType : uint8
 	ShieldParryHit,
 	Melee_Boss,
 	Melee_Boss_Critical,
-	Dust
+	Dust,
+	MagnetCatcher_Launch,
+	MagnetCatcher_On,
+	MagnetCatcher_Catch,
 };

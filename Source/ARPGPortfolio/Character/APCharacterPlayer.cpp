@@ -17,6 +17,8 @@
 #include "Components/BoxComponent.h"
 #include "NiagaraComponent.h"
 #include "Interface/APGameInterface.h"
+#include "Interface/APPhysicsBodyPropInterface.h"
+#include "Interface/APSpawnFXInterface.h"
 #include "Projectile/APJavelin.h"
 #include "Projectile/APArrow.h"
 #include "CharacterStat/APCharacterStatComponent.h"
@@ -78,6 +80,16 @@ AAPCharacterPlayer::AAPCharacterPlayer()
 	else
 	{
 		UE_LOG(LogAPCharacterPlayer, Log, TEXT("InputActionEquipBow is NULL"));
+	}
+
+	static ConstructorHelpers::FObjectFinder<UInputAction> InputActionEquipMagnetCatcherRef(TEXT("/Script/EnhancedInput.InputAction'/Game/ARPGPortfolio/Input/Actions/IA_EquipWeapon_MagnetCatcher.IA_EquipWeapon_MagnetCatcher'"));
+	if (nullptr != InputActionEquipMagnetCatcherRef.Object)
+	{
+		EquipMagnetCatcherAction = InputActionEquipMagnetCatcherRef.Object;
+	}
+	else
+	{
+		UE_LOG(LogAPCharacterPlayer, Log, TEXT("InputActionEquipMagnetCatcher is NULL"));
 	}
 
 	static ConstructorHelpers::FObjectFinder<UInputAction> InputActionTargetLockRef(TEXT("/Script/EnhancedInput.InputAction'/Game/ARPGPortfolio/Input/Actions/IA_TargetLock.IA_TargetLock'"));
@@ -329,6 +341,24 @@ AAPCharacterPlayer::AAPCharacterPlayer()
 	{
 		JavelinMontage = JavelinMontageRef.Object;
 	}
+
+	// MagnetCatcher Section
+	static ConstructorHelpers::FObjectFinder<UAnimMontage> MagnetShootMontageRef(TEXT("/Script/Engine.AnimMontage'/Game/ARPGPortfolio/Animation/AM_MagnetCatcher_Shoot.AM_MagnetCatcher_Shoot'"));
+	if (MagnetShootMontageRef.Object)
+	{
+		MagnetShootMontage = MagnetShootMontageRef.Object;
+	}
+
+	MagnetReference = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MagnetReference"));
+	MagnetReference->SetupAttachment(RootComponent);
+	MagnetReference->SetRelativeLocation(FVector(190, 0, 30));
+
+	MagnetReference->SetGenerateOverlapEvents(false);
+	MagnetReference->CanCharacterStepUpOn = ECB_No;
+	MagnetReference->SetCollisionProfileName(TEXT("NoCollision"));
+
+	MagnetReference->SetVisibility(false);
+	MagnetReference->SetHiddenInGame(true);
 }
 
 void AAPCharacterPlayer::Tick(float DeltaTime)
@@ -377,8 +407,8 @@ void AAPCharacterPlayer::BeginPlay()
 
 
 	// Spawn AI Enemy Test Code
-	//const FTransform SpawnTransform1(FVector(1000, 100, 100));
-	//AAPCharacterHorobinSword* APOpponentCharacter1 = GetWorld()->SpawnActor<AAPCharacterHorobinSword>(AAPCharacterHorobinSword::StaticClass(), SpawnTransform1);
+	const FTransform SpawnTransform1(FVector(1000, 100, 100));
+	AAPCharacterHorobinSword* APOpponentCharacter1 = GetWorld()->SpawnActor<AAPCharacterHorobinSword>(AAPCharacterHorobinSword::StaticClass(), SpawnTransform1);
 
 	//const FTransform SpawnTransform2(FVector(1000, 600, 100));
 	//AAPCharacterHorobinAxe* APOpponentCharacter2 = GetWorld()->SpawnActor<AAPCharacterHorobinAxe>(AAPCharacterHorobinAxe::StaticClass(), SpawnTransform2);
@@ -386,8 +416,8 @@ void AAPCharacterPlayer::BeginPlay()
 	//const FTransform SpawnTransform3(FVector(1000, 1100, 100));
 	//AAPCharacterHorobinArrow* APOpponentCharacter3 = GetWorld()->SpawnActor<AAPCharacterHorobinArrow>(AAPCharacterHorobinArrow::StaticClass(), SpawnTransform3);
 
-	const FTransform SpawnTransform4(FVector(1000, 1500, 100));
-	AAPCharacterBoss* APOpponentCharacter3 = GetWorld()->SpawnActor<AAPCharacterBoss>(AAPCharacterBoss::StaticClass(), SpawnTransform4);
+	//const FTransform SpawnTransform4(FVector(1000, 1500, 100));
+	//AAPCharacterBoss* APOpponentCharacter3 = GetWorld()->SpawnActor<AAPCharacterBoss>(AAPCharacterBoss::StaticClass(), SpawnTransform4);
 }
 
 void AAPCharacterPlayer::SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent)
@@ -411,6 +441,7 @@ void AAPCharacterPlayer::SetupPlayerInputComponent(class UInputComponent* Player
 	EnhancedInputComponent->BindAction(EquipBladeAction, ETriggerEvent::Triggered, this, &AAPCharacterPlayer::EquipWeapon, EWeaponType::Blade);
 	EnhancedInputComponent->BindAction(EquipSpearAction, ETriggerEvent::Triggered, this, &AAPCharacterPlayer::EquipWeapon, EWeaponType::Spear);
 	EnhancedInputComponent->BindAction(EquipBowAction, ETriggerEvent::Triggered, this, &AAPCharacterPlayer::EquipWeapon, EWeaponType::Bow);
+	EnhancedInputComponent->BindAction(EquipMagnetCatcherAction, ETriggerEvent::Triggered, this, &AAPCharacterPlayer::EquipWeapon, EWeaponType::MagnetCatcher);
 	EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Triggered, this, &AAPCharacterPlayer::PressLeftMouseButton);
 	EnhancedInputComponent->BindAction(ChargeAction, ETriggerEvent::Completed, this, &AAPCharacterPlayer::ReleaseLeftMouseButton);
 	EnhancedInputComponent->BindAction(RightMouseButtonAction, ETriggerEvent::Triggered, this, &AAPCharacterPlayer::PressRightMouseButton);
@@ -672,6 +703,12 @@ void AAPCharacterPlayer::ReleaseCommandTimerHandles()
 
 void AAPCharacterPlayer::PressLeftMouseButton()
 {
+	if (CurrentWeaponType == EWeaponType::MagnetCatcher)
+	{
+		LaunchTarget();
+		return;
+	}
+
 	if (bIsParryAttackable && ParryTargetActor != nullptr && !bIsParryAttacking)
 	{
 		if (CurrentWeaponType == EWeaponType::Blade)
@@ -712,7 +749,7 @@ void AAPCharacterPlayer::PressLeftMouseButton()
 
 void AAPCharacterPlayer::ReleaseLeftMouseButton()
 {
-	if (CurrentWeaponType == EWeaponType::Bow)
+	if (CurrentWeaponType == EWeaponType::Bow || CurrentWeaponType == EWeaponType::MagnetCatcher)
 	{
 		return;
 	}
@@ -1007,12 +1044,13 @@ void AAPCharacterPlayer::PressRightMouseButton()
 			{
 			case EWeaponType::Blade:
 			case EWeaponType::Spear:
+			case EWeaponType::MagnetCatcher:
 				return;
 
 			case EWeaponType::Bow:
 				bIsJumpShooting = true;
 				GetWorld()->GetTimerManager().SetTimer(JumpArrowShotTimerHandle, this, &AAPCharacterPlayer::JumpArrowShotProcess, FApp::GetDeltaTime(), true);
-				break;
+				break;;
 
 			default:
 				break;
@@ -1048,6 +1086,12 @@ void AAPCharacterPlayer::PressRightMouseButton()
 			AnimInstance->Montage_Play(DrawArrowMontage);
 			break;
 
+		case EWeaponType::MagnetCatcher:
+			GetWorld()->GetTimerManager().SetTimer(MagnetFXTimerHandle, this, &AAPCharacterPlayer::PlayOnMagnetFX, 0.2f, true);
+			AnimInstance->SetIsHoldingMagnet(true);
+			OnMagnet();
+			break;
+
 		default:
 			break;
 		}
@@ -1055,6 +1099,10 @@ void AAPCharacterPlayer::PressRightMouseButton()
 		CurrentZoomDuration = 0;
 		GetWorldTimerManager().ClearTimer(RightMouseButtonActionTimerHandle);
 		GetWorld()->GetTimerManager().SetTimer(RightMouseButtonActionTimerHandle, this, &AAPCharacterPlayer::ZoomIn, FApp::GetDeltaTime(), true);
+	}
+	else if (CurrentWeaponType == EWeaponType::MagnetCatcher)
+	{
+		OnMagnet();
 	}
 }
 
@@ -1101,6 +1149,13 @@ void AAPCharacterPlayer::ReleaseRightMouseButton()
 		{
 			AnimInstance->StopAllMontages(0);
 		}
+
+		StartZoomOut();
+		break;
+
+	case EWeaponType::MagnetCatcher:
+		AnimInstance->SetIsHoldingMagnet(false);
+		OffMagnet();
 
 		StartZoomOut();
 		break;
@@ -1206,6 +1261,107 @@ void AAPCharacterPlayer::JumpArrowShotProcess()
 
 		StartZoomOut();
 	}
+}
+
+void AAPCharacterPlayer::OnMagnet()
+{
+	if (bIsLaunched)
+	{
+		return;
+	}
+
+	if (nullptr == MagnetTarget)
+	{
+		bIsMagnetOn = true;
+		MagnetTrace();
+	}
+	else
+	{
+		MoveMagnetTarget();
+	}
+}
+
+void AAPCharacterPlayer::OffMagnet()
+{
+	if (nullptr != MagnetTarget)
+	{
+		MagnetTarget->SetSimulatePhysics(true);
+		MagnetTarget = nullptr;
+	}
+	
+	bIsMagnetOn = false;
+	bIsLaunched = false;
+
+	GetWorld()->GetTimerManager().ClearTimer(MagnetFXTimerHandle);
+}
+
+void AAPCharacterPlayer::MagnetTrace()
+{
+	if (!bIsMagnetOn)
+	{
+		return;
+	}
+
+	FVector Start = GetMesh()->GetSocketLocation(TEXT("hand_rSocket"));
+	FVector End = Start + UKismetMathLibrary::GetForwardVector(GetControlRotation()) * 1500;
+
+	TArray<TEnumAsByte<EObjectTypeQuery>> ObjectTypesArray;
+	ObjectTypesArray.Add(UEngineTypes::ConvertToObjectType(ECollisionChannel::ECC_PhysicsBody));
+	TArray<AActor*> ActorsToIgnore;
+	ActorsToIgnore.Add(this);
+	FHitResult HitResult;
+
+	if (UKismetSystemLibrary::LineTraceSingleForObjects(GetWorld(), Start, End, ObjectTypesArray, false, ActorsToIgnore, EDrawDebugTrace::ForDuration, HitResult, true))
+	{
+		if (HitResult.GetComponent()->IsAnySimulatingPhysics())
+		{
+			MagnetTarget = HitResult.GetComponent();
+
+			GetWorld()->GetTimerManager().ClearTimer(MagnetFXTimerHandle);
+			GetWorld()->GetTimerManager().SetTimer(MagnetFXTimerHandle, this, &AAPCharacterPlayer::PlayMagnetCatchFX, 2, true);
+
+			return;
+		}
+	}
+}
+
+void AAPCharacterPlayer::MoveMagnetTarget()
+{
+	MagnetTarget->SetSimulatePhysics(false);
+	MagnetTarget->SetWorldLocation(MagnetReference->GetComponentLocation());
+}
+
+void AAPCharacterPlayer::LaunchTarget()
+{
+	if (nullptr != MagnetTarget)
+	{
+		GetWorld()->GetTimerManager().ClearTimer(MagnetFXTimerHandle);
+		GetMesh()->GetAnimInstance()->StopAllMontages(0);
+		GetMesh()->GetAnimInstance()->Montage_Play(MagnetShootMontage);
+
+		CastChecked<IAPSpawnFXInterface>(GetWorld()->GetAuthGameMode())->SpawnFX(EFXType::MagnetCatcher_Launch, MagnetReference->GetComponentLocation(), GetActorRotation());
+
+		MagnetTarget->SetSimulatePhysics(true);
+		MagnetTarget->AddImpulse(UKismetMathLibrary::GetForwardVector(GetControlRotation()) * 200000);
+		
+		CurrentZoomDuration = 0;
+		GetWorldTimerManager().ClearTimer(RightMouseButtonActionTimerHandle);
+		GetWorld()->GetTimerManager().SetTimer(RightMouseButtonActionTimerHandle, this, &AAPCharacterPlayer::ZoomOut, FApp::GetDeltaTime(), true);
+
+		Cast<IAPPhysicsBodyPropInterface>(MagnetTarget->GetAttachmentRootActor())->OnCollisionTrace(GetController());
+
+		bIsLaunched = true;
+	}
+}
+
+void AAPCharacterPlayer::PlayOnMagnetFX()
+{
+	CastChecked<IAPSpawnFXInterface>(GetWorld()->GetAuthGameMode())->SpawnFX(EFXType::MagnetCatcher_On, GetMesh()->GetSocketLocation(TEXT("hand_rSocket")), GetActorRotation());
+}
+
+void AAPCharacterPlayer::PlayMagnetCatchFX()
+{
+	CastChecked<IAPSpawnFXInterface>(GetWorld()->GetAuthGameMode())->SpawnFX(EFXType::MagnetCatcher_Catch, GetMesh()->GetSocketLocation(TEXT("hand_rSocket")), GetActorRotation());
 }
 
 void AAPCharacterPlayer::NPCHpBarTrace()
